@@ -1,0 +1,1945 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Robot Sim</title>
+<style>
+  :root { --bg:#f4f5f7; --panel:#fff; --border:#e1e4ea; --text:#1a2030; --muted:#687287; --accent:#2f6fed; --soft:#e9f0ff;
+          --good:#1a8a4a; --bad:#c7362b; --warn:#a15c00; --code:#f6f7f9; color-scheme: light; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; }
+  body { background: var(--bg); color: var(--text); font: 13.5px/1.45 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  button, select, input, textarea { font: inherit; color: inherit; }
+  .app { display: grid; grid-template-columns: minmax(300px, .9fr) minmax(420px, 1.2fr) minmax(360px, 1.3fr); gap: 12px; padding: 12px; height: 100vh; }
+  .col { display: flex; flex-direction: column; gap: 12px; min-height: 0; min-width: 0; }
+  .panel { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; min-height: 0; min-width: 0; display: flex; flex-direction: column; }
+  .head { display: flex; align-items: center; gap: 8px; padding: 9px 12px; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
+  h1, h2 { margin: 0; font-size: 14px; font-weight: 650; }
+  h2 { font-size: 13px; }
+  .spacer { flex: 1; }
+  .muted { color: var(--muted); font-size: 12px; }
+  .btn { border: 1px solid var(--border); background: var(--panel); border-radius: 8px; padding: 4px 10px; cursor: pointer; font-size: 12.5px; white-space: nowrap; }
+  .btn:hover { border-color: var(--accent); }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  select, input[type=number] { border: 1px solid var(--border); border-radius: 7px; padding: 3px 6px; background: var(--panel); font-size: 12.5px; }
+  input[type=number] { width: 70px; }
+
+  #src { flex: 1; min-height: 200px; border: 0; outline: none; resize: none; padding: 10px 12px; background: transparent;
+         font: 12px/1.55 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; tab-size: 2; white-space: pre; overflow: auto; }
+  #designSrc { flex: 1; min-height: 200px; margin: 0; padding: 10px 12px; overflow: auto; font: 12px/1.55 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; white-space: pre-wrap; color: var(--text); }
+  #designSrc .note { font-family: ui-sans-serif, system-ui, sans-serif; font-size: 12.5px; color: var(--muted); white-space: normal; margin-bottom: 8px; }
+  #errs:not(:empty) { padding: 8px 12px; border-top: 1px solid var(--border); color: var(--bad); font-size: 12px; max-height: 90px; overflow: auto; }
+  details { border-top: 1px solid var(--border); padding: 8px 12px; font-size: 12px; color: var(--muted); }
+  details summary { cursor: pointer; color: var(--text); font-weight: 600; }
+  details code { font: 11.5px ui-monospace, Menlo, monospace; background: var(--code); border: 1px solid var(--border); border-radius: 4px; padding: 0 4px; color: var(--text); }
+  details .ref { max-height: 230px; overflow: auto; margin-top: 6px; }
+  details .ref div { margin: 3px 0; }
+
+  .fieldwrap { flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; padding: 8px; }
+  #field { display: block; max-width: 100%; max-height: 100%; aspect-ratio: 1; border-radius: 8px; }
+  .stat { display: flex; flex-wrap: wrap; gap: 6px 14px; padding: 8px 12px; border-top: 1px solid var(--border); font-size: 12.5px; align-items: center; }
+  .stat b { font-weight: 650; }
+  .pill { padding: 1px 8px; border-radius: 99px; font-size: 11.5px; font-weight: 650; background: var(--soft); color: var(--accent); }
+  .pill.win { background: #e3f6ea; color: var(--good); } .pill.bad { background: #fde8e6; color: var(--bad); } .pill.done { background: #fff4e0; color: var(--warn); }
+  .lights { display: inline-flex; gap: 4px; }
+  .light { font: 10.5px ui-monospace, monospace; padding: 1px 5px; border-radius: 5px; border: 1px solid var(--border); color: var(--muted); }
+  .light.on { background: var(--text); color: #fff; border-color: var(--text); }
+  #path { font-weight: 600; }
+
+  #diagram { flex: 1; overflow: hidden; padding: 8px; min-height: 0; position: relative; }
+  #diagram svg { position: absolute; inset: 8px; width: calc(100% - 16px); height: calc(100% - 16px); }
+  #log { height: 100%; overflow: auto; padding: 6px 12px; font: 11.5px/1.5 ui-monospace, Menlo, monospace; min-height: 100px; }
+  #log .tr { color: var(--text); } #log .good { color: var(--good); font-weight: 600; } #log .bad { color: var(--bad); font-weight: 600; } #log div { white-space: nowrap; }
+  #log span.t { color: var(--muted); display: inline-block; width: 46px; }
+
+  .tabs { gap: 4px; padding: 6px 10px; }
+  .tab { border: 0; background: transparent; padding: 4px 10px; border-radius: 7px; cursor: pointer; color: var(--muted); font-size: 12.5px; font-weight: 600; }
+  .tab[aria-selected="true"] { background: var(--soft); color: var(--accent); }
+  .tabbody { flex: 1; min-height: 0; overflow: auto; }
+  .params { display: grid; grid-template-columns: 1fr auto; gap: 4px 8px; padding: 8px 12px; font-size: 12px; align-items: center; }
+  #batchOut { padding: 0 12px 10px; font-size: 12.5px; }
+  #batchOut .seeds { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; max-height: 96px; overflow: auto; }
+  #batchOut .seeds button { font: 11px ui-monospace, monospace; padding: 1px 6px; border-radius: 6px; border: 1px solid var(--border); background: var(--panel); cursor: pointer; }
+  #batchOut .seeds button.dq { border-color: #f1b5af; } #batchOut .seeds button.timeout { border-color: #f3d39b; } #batchOut .seeds button.done { border-color: #c9d3e6; }
+  .bar { height: 8px; border-radius: 4px; background: var(--border); overflow: hidden; display: flex; margin-top: 6px; }
+  .bar span { display: block; height: 100%; }
+  @media (max-width: 1100px) { .app { grid-template-columns: 1fr; height: auto; } #src { min-height: 360px; } .fieldwrap { min-height: 420px; } #diagram { height: 80vh; } .tabbody { max-height: 320px; } }
+</style>
+</head>
+<body>
+<div class="app">
+  <section class="col">
+    <div class="panel" style="flex:1">
+      <div class="head"><h1 id="fsmTitle">FSM</h1><span class="muted" id="fsmHint">edit → applies on Restart</span><span class="spacer"></span>
+        <button class="btn" id="resetProg" title="Load the default min-spec FSM">Default</button>
+        <button class="btn" id="copyProg">Copy</button></div>
+      <div id="designSrc" hidden></div>
+      <textarea id="src" spellcheck="false" autocapitalize="off" autocomplete="off" aria-label="FSM program"></textarea>
+      <div id="errs"></div>
+      <details>
+        <summary>Reference</summary>
+        <div class="ref">
+          <div><b>Transitions</b> — same as the FSM builder: <code>A -> B : EVENT</code>, <code>Name { … }</code>, <code>start:</code>, <code>states:</code>. Unhandled events are ignored. Inner states win over parents.</div>
+          <div><b>Entry actions</b> — <code>@State: cmd; cmd</code> run when the state is entered:</div>
+          <div><code>drive L R</code> wheel power −1..1 · <code>stop</code> · <code>follow</code> line-follow with tape on the right (FR outer on tape, inner off)</div>
+          <div><code>timer NAME 2s|40in|90deg</code> posts NAME later (in/deg use nominal speeds; cancelled when its state exits)</div>
+          <div><code>fire</code> one ball out the right side · <code>count NAME N DONE MORE</code> +1, posts DONE at N (and resets) else MORE · <code>reset NAME</code> · <code>post EV</code> · <code>if SENSOR EV</code> posts EV if the sensor is on now · <code>done</code> end</div>
+          <div><b>Sensor events</b>: <code>FRONT_TAPE</code> <code>FRONT_CLEAR</code> <code>REAR_TAPE</code> <code>FL_ON/OFF</code> <code>FRI_ON/OFF</code> <code>FRO_ON/OFF</code> <code>BL_ON/OFF</code> <code>BR_ON/OFF</code> <code>FOLLOW_LOST</code> (both FR white for “lost time” while following) <code>TRACKWIRE</code> <code>TRACKWIRE_LOST</code> <code>BEACON</code> <code>BEACON_LOST</code> <code>BUMP_FRONT</code> <code>BUMP_BACK</code> <code>BUMP</code></div>
+          <div><b>if sensors</b>: fl fri fro bl br front rear tape trackwire beacon bumpf bumpb</div>
+          <div><b>Robot</b>: 10×10 in, wheels mid-left/right, everything fires/senses out the right. Tape boards FL, FR inner, FR outer, BL, BR. Bumper bars front + back only (sides blind).</div>
+          <div><b>Robot menu</b>: <i>Text FSM</i> runs the program above on the sim's default robot. <i>design.md HSM</i> runs the team design's HSM (§8–§9) on the design.md robot: 7 tape sensors FL FC FR / MC / BL BC BR (1.5" apart; FC 0.5" ahead of FL/FR, BC 0.5" behind BL/BR), front + back bumpers, <b>side shooter + track-wire coil + tower-tape sensor on the right</b> (the sensor looks sideways, mounted directly below the shooter, and sees the tower's vertical banner under the marked hole), <b>beacon detector on the left</b>. It drives counterclockwise so the shooter faces the towers and the beacon faces the field. Tower: no track wire — while following, the tower-tape sensor sees the banner below the marked hole → stop → fire. Dead robot: beacon seen → center it abeam → rotate 180° → fire, drive 0.5 s, fire, drive 0.5 s, fire (3 shots) → rotate back. Only 6 balls: 3 stay reserved for the dead robot until the attack is done. <i>with fixes</i> adds the fixes found in testing.</div>
+          <div><b>Rules</b>: DQ if the robot's center passes the tape's outer edge, or it stays in contact &gt; 5 s. Win = 2 marked-hole towers + 2 opponent hits in 2:00.</div>
+        </div>
+      </details>
+    </div>
+  </section>
+
+  <section class="col">
+    <div class="panel" style="flex:1">
+      <div class="head">
+        <h1>Field</h1>
+        <label class="muted">Robot <select id="robotSel">
+          <option value="text">Text FSM (sim robot)</option>
+          <option value="design">design.md HSM — as designed</option>
+          <option value="fixed">design.md HSM — with fixes</option>
+        </select></label>
+        <span class="spacer"></span>
+        <button class="btn primary" id="play">▶ Run</button>
+        <button class="btn" id="stepBtn" title="Advance 0.1 s">Step</button>
+        <button class="btn" id="restart" title="Same field, apply FSM edits">Restart</button>
+        <button class="btn" id="newField">New random</button>
+        <label class="muted">Speed <select id="speed"><option>0.5</option><option selected>1</option><option>2</option><option>4</option><option>10</option></select>×</label>
+        <label class="muted">Seed <input type="number" id="seed" min="1" step="1"></label>
+      </div>
+      <div class="fieldwrap"><canvas id="field" width="900" height="900"></canvas></div>
+      <div class="stat">
+        <span class="pill" id="status">ready</span>
+        <span><b id="time">0.0</b> s</span>
+        <span>balls <b id="balls">15</b></span>
+        <span>opp hits <b id="opp">0</b>/2</span>
+        <span>towers <b id="towers">0</b>/2</span>
+        <span class="lights" id="lights"></span>
+      </div>
+      <div class="stat" style="padding-top:0;border-top:0"><span class="muted">state</span><span id="path">—</span></div>
+    </div>
+    <div class="panel" style="flex:0 0 34%">
+      <div class="head tabs">
+        <button class="tab" data-tab="log" aria-selected="true">Event log</button>
+        <button class="tab" data-tab="batch">Batch test</button>
+        <button class="tab" data-tab="settings">Sim settings</button>
+        <span class="spacer"></span>
+        <span class="batchctl"><label class="muted">runs <input type="number" id="nRuns" value="100" min="1" max="2000"></label>
+        <button class="btn primary" id="batch">Run batch</button></span>
+      </div>
+      <div class="tabbody" data-body="log"><div id="log"></div></div>
+      <div class="tabbody" data-body="batch" hidden><div id="batchOut" class="muted" style="padding-top:8px">Runs the current FSM from many random starts and fields. Click a failing seed to replay it.</div></div>
+      <div class="tabbody" data-body="settings" hidden><div class="params" id="params"></div></div>
+    </div>
+  </section>
+
+  <section class="col">
+    <div class="panel" style="flex:1">
+      <div class="head"><h2>Live diagram</h2><span class="spacer"></span><span class="muted">whole FSM, current state highlighted</span></div>
+      <div id="diagram"></div>
+    </div>
+  </section>
+</div>
+
+<script>
+const FONT = 'ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif';
+const INSET = 4;
+const opts = { dir: 'TB', shape: 'rounded', theme: 'light', bg: false };
+let overrides = new Map();
+// ---------- helpers ----------
+// Same semantics as RUNTIME, used by the preview simulator.
+const enterState = (def, s) => { while (def.states[s]?.initial) s = def.states[s].initial; return s; };
+const pathOf = (def, s) => { const p = []; for (; s != null; s = def.states[s]?.parent) p.unshift(s); return p; };
+const eventsOf = (def, s) => Object.assign({}, ...pathOf(def, s).map(x => def.states[x]?.on));
+const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+const f = n => +n.toFixed(1);
+const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+const ctx = document.createElement('canvas').getContext('2d');
+function textWidth(s, size, weight = 400) { ctx.font = `${weight} ${size}px ${FONT}`; return ctx.measureText(s).width; }
+function hash(s) { let h = 2166136261; for (const c of s) { h ^= c.codePointAt(0); h = Math.imul(h, 16777619); } return (h >>> 0).toString(36).slice(0, 6); }
+const jsKey = k => /^[A-Za-z_$][\w$]*$/.test(k) ? k : JSON.stringify(k);
+const slug = s => s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'fsm';
+
+
+const THEMES = {
+  light:   { label: 'Light',   stroke: '#334155', fill: '#ffffff', text: '#0f172a', label2: '#475569', bg: '#ffffff', active: '#dbeafe', accent: '#2563eb', group: '#f8fafc' },
+  dark:    { label: 'Dark',    stroke: '#94a3b8', fill: '#1e293b', text: '#f1f5f9', label2: '#cbd5e1', bg: '#0f172a', active: '#1e3a8a', accent: '#60a5fa', group: '#162033' },
+  paper:   { label: 'Paper',   stroke: '#44403c', fill: '#fffdf8', text: '#1c1917', label2: '#57534e', bg: '#f5f1e8', active: '#fde7d4', accent: '#c2410c', group: '#faf6ee' },
+  inherit: { label: 'Inherit page colors', stroke: 'currentColor', fill: 'transparent', text: 'currentColor', label2: 'currentColor', bg: 'transparent', active: 'rgba(128,128,128,.22)', accent: 'currentColor', group: 'rgba(128,128,128,.06)' },
+};
+
+
+// ---------- parser ----------
+// "Name {" ... "}" blocks create composite states (hierarchical state machines).
+function parse(src) {
+  const states = new Map(), edgeMap = new Map(), errors = [];
+  let start = null, title = '';
+  const scopes = [null];                       // block stack; null = top level
+  const scope = () => scopes[scopes.length - 1];
+  const where = s => s === null ? 'the top level' : `"${s}"`;
+  const ensure = name => {
+    if (!states.has(name)) states.set(name, { name, accept: false, parent: null, initial: null, children: [], mentions: [], pinned: undefined });
+    return states.get(name);
+  };
+  const mention = name => { const s = ensure(name); s.mentions.push(scope()); return s; };
+  const pin = name => { const s = mention(name); if (s.pinned === undefined) s.pinned = scope(); return s; };
+  const setStart = name => { if (scope() === null) { start = name; mention(name); } else { ensure(scope()).initial = name; pin(name); } };
+  const list = s => s.split(',').map(x => x.trim()).filter(Boolean);
+  const ARROW = /(?:-+>|→|=>)/;
+
+  src.split(/\r?\n/).forEach((raw, i) => {
+    const line = raw.replace(/(^|\s)(#|\/\/).*$/, '').trim();
+    if (!line) return;
+    let m;
+    if (line === '}') {
+      if (scopes.length > 1) scopes.pop(); else errors.push(`Line ${i + 1}: "}" without a matching "{"`);
+      return;
+    }
+    if (!ARROW.test(line)) {
+      if ((m = line.match(/^(?:state\s+)?(.+?)\s*\{$/i))) {
+        const name = m[1].trim(), s = ensure(name);
+        if (s.pinned !== undefined && s.pinned !== scope()) errors.push(`Line ${i + 1}: "${name}" already belongs to ${where(s.pinned)}`);
+        else { s.pinned = scope(); s.mentions.push(scope()); }
+        scopes.push(name);
+        return;
+      }
+      if ((m = line.match(/^(?:start|initial)\s*:\s*(.+)$/i))) { setStart(m[1].trim()); return; }
+      if ((m = line.match(/^(?:accept(?:ing)?|finals?|end)\s*:\s*(.+)$/i))) { list(m[1]).forEach(n => { ensure(n).accept = true; }); return; }
+      if ((m = line.match(/^states?\s*:\s*(.+)$/i))) { list(m[1]).forEach(pin); return; }
+      if ((m = line.match(/^title\s*:\s*(.+)$/i))) { title = m[1].trim(); return; }
+      errors.push(`Line ${i + 1}: expected "From -> To : event" — got "${raw.trim()}"`);
+      return;
+    }
+    if ((m = line.match(/^(?:-+>|→|=>)\s*(.+)$/))) { setStart(m[1].trim()); return; }
+    if ((m = line.match(/^(.+?)\s*(?:-+>|→|=>)\s*(.+?)(?:\s*:\s*(.*))?$/))) {
+      const [from, to] = [m[1].trim(), m[2].trim()];
+      mention(from); mention(to);
+      const key = from + '\0' + to;
+      if (!edgeMap.has(key)) edgeMap.set(key, { from, to, labels: [] });
+      const e = edgeMap.get(key);
+      for (const l of list(m[3] || '')) if (!e.labels.includes(l)) e.labels.push(l);
+      return;
+    }
+    errors.push(`Line ${i + 1}: couldn't read "${raw.trim()}"`);
+  });
+  if (scopes.length > 1) errors.push(`"${scope()} {" is never closed with "}"`);
+
+  // A state lives where it is declared (block, start:, states:); otherwise in the
+  // innermost block that contains every place it is mentioned.
+  const chain = sc => { const out = []; for (let g = 0; sc !== null && g < 64; g++) { out.push(sc); sc = states.get(sc)?.pinned ?? null; } out.push(null); return out; };
+  const lca = scs => { const [first, ...rest] = scs.map(chain); return first.find(sc => rest.every(c => c.includes(sc))) ?? null; };
+  for (const s of states.values()) {
+    s.parent = s.pinned !== undefined ? s.pinned : (s.mentions.length ? lca(s.mentions) : null);
+    if (s.parent === s.name) s.parent = null;
+  }
+  for (const s of states.values()) {
+    const seen = new Set([s.name]);
+    for (let p = s.parent; p !== null; p = states.get(p).parent) {
+      if (seen.has(p)) { errors.push(`"${s.name}" ends up nested inside itself`); s.parent = null; break; }
+      seen.add(p);
+    }
+  }
+  for (const s of states.values()) if (s.parent !== null) states.get(s.parent).children.push(s.name);
+  for (const s of states.values()) {
+    if (s.initial && !s.children.includes(s.initial)) { errors.push(`"start: ${s.initial}" in "${s.name}" isn't one of its substates`); s.initial = null; }
+    s.initial = s.children.length ? (s.initial ?? s.children[0]) : null;
+  }
+
+  const list2 = [...states.values()].map(({ name, accept, parent, initial, children }) => ({ name, accept, parent, initial, children }));
+  if (!start && list2.length) start = (list2.find(s => s.parent === null) ?? list2[0]).name;
+  return { states: list2, edges: [...edgeMap.values()], start, title, errors, composites: list2.filter(s => s.children.length).length };
+}
+
+
+// ---------- layout ----------
+const PAD = 18, HEAD = 30, START_ROOM = 46;
+
+// Layered layout for the direct children of one scope. Positions are in that scope's own space.
+function layeredLayout(names, edges, start, nodes, maxLabel) {
+  const out = new Map(names.map(n => [n, []])), und = new Map(names.map(n => [n, new Set()]));
+  for (const e of edges) { out.get(e.from).push(e.to); und.get(e.from).add(e.to); und.get(e.to).add(e.from); }
+
+  // BFS depth from the start state; leftover components get their own roots.
+  const depth = new Map(), order = [];
+  for (const root of [start, ...names].filter(Boolean)) {
+    if (depth.has(root)) continue;
+    const placedTargets = out.get(root).filter(t => depth.has(t)).map(t => depth.get(t));
+    depth.set(root, placedTargets.length ? Math.max(0, Math.min(...placedTargets) - 1) : 0);
+    const q = [root];
+    while (q.length) {
+      const n = q.shift(); order.push(n);
+      for (const m of out.get(n)) if (!depth.has(m)) { depth.set(m, depth.get(n) + 1); q.push(m); }
+    }
+  }
+  const L = Math.max(0, ...depth.values()) + 1;
+  const layers = Array.from({ length: L }, () => []);
+  for (const n of order) layers[depth.get(n)].push(n);
+
+  // Barycenter sweeps to reduce crossings.
+  const centered = arr => new Map(arr.map((n, i) => [n, i - (arr.length - 1) / 2]));
+  for (let it = 0; it < 8; it++) {
+    const down = it % 2 === 0;
+    for (let k = 1; k < L; k++) {
+      const l = down ? k : L - 1 - k;
+      const ref = centered(layers[down ? l - 1 : l + 1]), cur = centered(layers[l]);
+      layers[l] = layers[l].map(n => {
+        const ns = [...und.get(n)].filter(m => ref.has(m));
+        const b = ns.length ? ns.reduce((a, m) => a + ref.get(m), 0) / ns.length : cur.get(n);
+        return { n, b, c: cur.get(n) };
+      }).sort((a, b) => a.b - b.b || a.c - b.c).map(o => o.n);
+    }
+  }
+
+  // Self-loops get reserved room: above the state (LR) or to its right (TB).
+  const horiz = opts.dir === 'LR';
+  const mainGap = horiz ? clamp(maxLabel + 48, 90, 240) : 84;
+  const crossGap = horiz ? 56 : clamp(maxLabel + 40, 70, 180);
+  const pos = new Map();
+  let cursor = 0;
+  for (const layer of layers) {
+    const thick = Math.max(...layer.map(n => horiz ? nodes.get(n).w : nodes.get(n).h));
+    const center = cursor + thick / 2;
+    // Only crowded layers need loop room; lone states stay aligned with their neighbours.
+    const roomOf = n => layer.length > 1 ? nodes.get(n).room : 0;
+    const sizes = layer.map(n => (horiz ? nodes.get(n).h : nodes.get(n).w) + roomOf(n));
+    let c = -(sizes.reduce((a, b) => a + b, 0) + crossGap * (layer.length - 1)) / 2;
+    layer.forEach((name, i) => {
+      const n = nodes.get(name);
+      pos.set(name, horiz ? { x: center, y: c + roomOf(name) + n.h / 2 } : { x: c + n.w / 2, y: center });
+      c += sizes[i] + crossGap;
+    });
+    cursor += thick + mainGap;
+  }
+  return pos;
+}
+
+// Size and center a composite state around its (already placed) children.
+function fitComposite(n, kids) {
+  const lr = opts.dir === 'LR';
+  let l = Infinity, t = Infinity, r = -Infinity, b = -Infinity;
+  for (const k of kids) {
+    l = Math.min(l, k.x - k.w / 2); r = Math.max(r, k.x + k.w / 2 + (lr ? 0 : k.room));
+    t = Math.min(t, k.y - k.h / 2 - (lr ? k.room : 0)); b = Math.max(b, k.y + k.h / 2);
+  }
+  l -= lr ? START_ROOM : PAD; r += PAD; b += PAD;
+  t -= HEAD + (lr ? 12 : START_ROOM);
+  r = Math.max(r, l + textWidth(n.name, 13, 600) + 28);
+  Object.assign(n, { x: (l + r) / 2, y: (t + b) / 2, w: r - l, h: b - t });
+}
+
+function layout(model, nodes) {
+  const kidsOf = new Map([[null, []]]);
+  for (const s of model.states) { kidsOf.set(s.name, s.children); if (s.parent === null) kidsOf.get(null).push(s.name); }
+  const parentOf = name => nodes.get(name).parent;
+  const liftTo = (name, scope) => { for (let s = name; s !== null; s = parentOf(s)) if (parentOf(s) === scope) return s; return null; };
+  const maxLabel = Math.max(0, ...model.edges.map(e => textWidth(e.labels.join(', '), 12.5)));
+  const rel = new Map();   // composite -> Map(child -> offset from the composite's center)
+
+  const sub = scope => {
+    const kids = kidsOf.get(scope);
+    for (const k of kids) if (nodes.get(k).composite) sub(k);
+    const edges = [];
+    for (const e of model.edges) {
+      const a = liftTo(e.from, scope), b = liftTo(e.to, scope);
+      if (a && b && a !== b) edges.push({ from: a, to: b });
+    }
+    const st = scope === null ? (model.start && liftTo(model.start, null)) : nodes.get(scope).initial;
+    const pos = layeredLayout(kids, edges, st, nodes, maxLabel);
+    if (scope === null) return pos;
+    const n = nodes.get(scope);
+    fitComposite(n, kids.map(k => ({ ...nodes.get(k), ...pos.get(k) })));
+    rel.set(scope, new Map(kids.map(k => [k, { x: pos.get(k).x - n.x, y: pos.get(k).y - n.y }])));
+  };
+
+  const base = new Map();
+  const place = (name, x, y) => { base.set(name, { x, y }); for (const [k, p] of rel.get(name) || []) place(k, x + p.x, y + p.y); };
+  for (const [k, p] of sub(null)) place(k, p.x, p.y);
+  return base;
+}
+
+// ---------- geometry ----------
+// Where a ray from `from` (default: the center) in direction (dx, dy) leaves the state's outline.
+function boundary(n, dx, dy, from = n) {
+  if (!dx && !dy) dx = 1;
+  const len = Math.hypot(dx, dy), ux = dx / len, uy = dy / len;
+  if (n.r) return { x: n.x + ux * n.r, y: n.y + uy * n.r };
+  const l = n.x - n.w / 2, r = n.x + n.w / 2, t = n.y - n.h / 2, b = n.y + n.h / 2;
+  const k = Math.min(ux > 0 ? (r - from.x) / ux : ux < 0 ? (l - from.x) / ux : Infinity,
+                     uy > 0 ? (b - from.y) / uy : uy < 0 ? (t - from.y) / uy : Infinity);
+  return { x: from.x + ux * k, y: from.y + uy * k };
+}
+function clearance(n, p) {
+  if (n.r) return Math.hypot(p.x - n.x, p.y - n.y) - n.r;
+  return Math.hypot(Math.max(Math.abs(p.x - n.x) - n.w / 2, 0), Math.max(Math.abs(p.y - n.y) - n.h / 2, 0));
+}
+const quad = (a, c, b, u) => ({ x: (1 - u) ** 2 * a.x + 2 * (1 - u) * u * c.x + u * u * b.x, y: (1 - u) ** 2 * a.y + 2 * (1 - u) * u * c.y + u * u * b.y });
+const cubic = (a, c1, c2, b, u) => {
+  const v = 1 - u;
+  return { x: v ** 3 * a.x + 3 * v * v * u * c1.x + 3 * v * u * u * c2.x + u ** 3 * b.x,
+           y: v ** 3 * a.y + 3 * v * v * u * c1.y + 3 * v * u * u * c2.y + u ** 3 * b.y };
+};
+const pullBack = (p, from, d) => { const l = Math.hypot(p.x - from.x, p.y - from.y) || 1; return { x: p.x - (p.x - from.x) / l * d, y: p.y - (p.y - from.y) / l * d }; };
+function angleDist(a, b) { let d = Math.abs(a - b) % (2 * Math.PI); return d > Math.PI ? 2 * Math.PI - d : d; }
+function freeAngle(occ, prefs) {
+  const score = a => occ.length ? Math.min(...occ.map(o => angleDist(a, o))) : Math.PI;
+  for (const p of prefs) if (score(p) >= 1.0) return p;
+  let best = prefs[0], bs = -1;
+  for (let i = 0; i < 24; i++) { const a = -Math.PI + i * Math.PI / 12, s = score(a); if (s > bs + 1e-9) { bs = s; best = a; } }
+  return best;
+}
+function labelBox(anchor, nx, ny, text) {
+  const w = textWidth(text, 12.5), h = 15;
+  const d = 6 + Math.abs(nx) * w / 2 + Math.abs(ny) * h / 2;
+  return { x: anchor.x + nx * d, y: anchor.y + ny * d, w, h, text };
+}
+
+function geometry(model) {
+  const nodes = new Map();
+  for (const s of model.states) {
+    const n = { ...s, composite: s.children.length > 0, x: 0, y: 0, r: 0, w: 0, h: 0, room: 0 };
+    if (!n.composite) {
+      const tw = textWidth(s.name, 14, 500);
+      if (opts.shape === 'circle') { n.r = Math.max(26, tw / 2 + 14); n.w = n.h = 2 * n.r; }
+      else { n.w = Math.max(84, tw + 36); n.h = 46; }
+    }
+    const loop = model.edges.find(e => e.from === s.name && e.to === s.name);
+    if (loop) n.room = opts.dir === 'LR' ? 60 : 44 + textWidth(loop.labels.join(', '), 12.5) + 6;
+    nodes.set(s.name, n);
+  }
+
+  // Base layout, then dragged offsets (a state moves with its parents), then refit composites.
+  const base = layout(model, nodes);
+  const lineage = name => { const out = []; for (let s = name; s !== null; s = nodes.get(s).parent) out.push(s); return out; };
+  for (const n of nodes.values()) {
+    if (n.composite) continue;
+    const p = base.get(n.name);
+    n.x = p.x; n.y = p.y;
+    for (const s of lineage(n.name)) { const o = overrides.get(s); if (o) { n.x += o.dx; n.y += o.dy; } }
+  }
+  const composites = [...nodes.values()].filter(n => n.composite).sort((a, b) => lineage(b.name).length - lineage(a.name).length);
+  for (const c of composites) fitComposite(c, c.children.map(k => nodes.get(k)));
+
+  const b = { minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity };
+  const grow = (x, y) => { b.minX = Math.min(b.minX, x); b.minY = Math.min(b.minY, y); b.maxX = Math.max(b.maxX, x); b.maxY = Math.max(b.maxY, y); };
+  for (const n of nodes.values()) { grow(n.x - n.w / 2, n.y - n.h / 2); grow(n.x + n.w / 2, n.y + n.h / 2); }
+
+  const keys = new Set(model.edges.map(e => e.from + '\0' + e.to));
+  const occ = new Map([...nodes.keys()].map(k => [k, []]));
+  const edges = [], samples = [], requests = [];
+  const sampleCurve = (fn, approxLen) => {
+    const n = Math.max(12, Math.ceil(approxLen / 6)), pts = [];
+    for (let i = 0; i <= n; i++) { const p = fn(i / n); pts.push(p); grow(p.x, p.y); }
+    samples.push(pts);
+    return samples.length - 1;
+  };
+  // Composite borders count as lines that labels should stay off.
+  for (const c of composites) {
+    const l = c.x - c.w / 2, t = c.y - c.h / 2, pts = [];
+    for (let x = l; x <= l + c.w; x += 6) pts.push({ x, y: t }, { x, y: t + c.h }, { x, y: t + HEAD });
+    for (let y = t; y <= t + c.h; y += 6) pts.push({ x: l, y }, { x: l + c.w, y });
+    samples.push(pts);
+  }
+
+  // An edge may cross its endpoints' own ancestors and descendants, but should avoid everything else.
+  const related = (a, b) => lineage(a).includes(b) || lineage(b).includes(a);
+  const hitCount = (PA, C, PB, A, B) => {
+    const skip = n => related(n.name, A.name) || related(n.name, B.name);
+    let count = 0;
+    for (let i = 1; i < 20; i++) {
+      const p = quad(PA, C, PB, i / 20);
+      for (const n of nodes.values()) if (!skip(n) && clearance(n, p) < 10) count++;
+    }
+    return count;
+  };
+  // Edges touching a composite aim at the part of it nearest the other end, not its center.
+  const anchor = (n, other) => {
+    if (!n.composite) return { x: n.x, y: n.y };
+    const m = Math.min(n.w, n.h) * 0.25;
+    return { x: clamp(other.x, n.x - n.w / 2 + m, n.x + n.w / 2 - m), y: clamp(other.y, n.y - n.h / 2 + m, n.y + n.h / 2 - m) };
+  };
+
+  for (const e of model.edges) {
+    if (e.from === e.to) continue;
+    const A = nodes.get(e.from), B = nodes.get(e.to);
+    const nested = related(A.name, B.name);
+    const PA = nested ? A : anchor(A, B), PB = nested ? B : anchor(B, A);
+    const dx = PB.x - PA.x, dy = PB.y - PA.y, len = Math.hypot(dx, dy) || 1;
+    const nx = -dy / len, ny = dx / len;                 // right-hand normal
+    const mx = (PA.x + PB.x) / 2, my = (PA.y + PB.y) / 2;
+    const rev = keys.has(e.to + '\0' + e.from);
+    const cands = rev ? [22, 44, 70, 100, 140] : [0, 32, -32, 64, -64, 100, -100, 140, -140];
+    const ctrl = off => ({ x: mx + nx * 2 * off, y: my + ny * 2 * off });
+    let off = cands[0], fewest = Infinity;              // first clear route, else the least obstructed
+    for (const c of cands) { const h = hitCount(PA, ctrl(c), PB, A, B); if (h < fewest) { fewest = h; off = c; } if (!h) break; }
+    const C = ctrl(off);
+    const s = boundary(A, C.x - PA.x, C.y - PA.y, PA), t = boundary(B, C.x - PB.x, C.y - PB.y, PB);
+    const t2 = pullBack(t, C, INSET);
+    const d = off === 0 ? `M${f(s.x)},${f(s.y)} L${f(t2.x)},${f(t2.y)}` : `M${f(s.x)},${f(s.y)} Q${f(C.x)},${f(C.y)} ${f(t2.x)},${f(t2.y)}`;
+    edges.push({ from: e.from, to: e.to, d });
+    const idx = sampleCurve(u => quad(s, C, t, u), len + Math.abs(off) * 2);
+    occ.get(e.from).push(Math.atan2(C.y - A.y, C.x - A.x));
+    occ.get(e.to).push(Math.atan2(C.y - B.y, C.x - B.x));
+
+    if (e.labels.length) {
+      // Preferred side: outside of the bend, or above / right of a straight edge.
+      const side = off !== 0 ? Math.sign(off) : (Math.abs(dx) >= Math.abs(dy) ? (ny > 0 ? -1 : 1) : (nx < 0 ? -1 : 1));
+      const at = (u, sgn) => {
+        const tx = 2 * (1 - u) * (C.x - s.x) + 2 * u * (t.x - C.x), ty = 2 * (1 - u) * (C.y - s.y) + 2 * u * (t.y - C.y);
+        const l = Math.hypot(tx, ty) || 1;
+        return labelBox(quad(s, C, t, u), -ty / l * sgn, tx / l * sgn, e.labels.join(', '));
+      };
+      const us = [0.5, 0.4, 0.6, 0.32, 0.68, 0.25, 0.75];
+      requests.push({ idx, cands: [...us.map(u => at(u, side)), ...us.map(u => at(u, -side))] });
+    }
+  }
+
+  // Start arrows: one for the machine, one inside each composite pointing at its initial substate.
+  const PI = Math.PI;
+  const startPrefs = opts.dir === 'LR' ? [PI, -3 * PI / 4, 3 * PI / 4, -PI / 2, PI / 2] : [-PI / 2, -3 * PI / 4, -PI / 4, PI, 0];
+  const starts = [];
+  for (const name of [model.start, ...composites.map(c => c.initial)]) {
+    if (!name || !nodes.has(name)) continue;
+    const n = nodes.get(name);
+    const a = freeAngle(occ.get(name), startPrefs);
+    occ.get(name).push(a);
+    const ux = Math.cos(a), uy = Math.sin(a), p = boundary(n, ux, uy);
+    const st = { x1: p.x + ux * 32, y1: p.y + uy * 32, x2: p.x + ux * INSET, y2: p.y + uy * INSET };
+    starts.push(st);
+    grow(st.x1 + ux * 4, st.y1 + uy * 4);
+    sampleCurve(u => ({ x: st.x1 + (p.x - st.x1) * u, y: st.y1 + (p.y - st.y1) * u }), 32);
+  }
+
+  const loopPrefs = opts.dir === 'LR'
+    ? [-PI / 2, PI / 2, 0, PI, -PI / 4, -3 * PI / 4, PI / 4, 3 * PI / 4]
+    : [0, PI, -PI / 2, PI / 2, -PI / 4, PI / 4, -3 * PI / 4, 3 * PI / 4];
+  for (const e of model.edges) {
+    if (e.from !== e.to) continue;
+    const n = nodes.get(e.from);
+    const a = freeAngle(occ.get(n.name), loopPrefs);
+    occ.get(n.name).push(a);
+    const sp = 0.42, cs = 0.62, reach = 64;
+    const p1 = boundary(n, Math.cos(a - sp), Math.sin(a - sp)), p2 = boundary(n, Math.cos(a + sp), Math.sin(a + sp));
+    const b0 = boundary(n, Math.cos(a), Math.sin(a)), R = Math.hypot(b0.x - n.x, b0.y - n.y) + reach;
+    const c1 = { x: n.x + Math.cos(a - cs) * R, y: n.y + Math.sin(a - cs) * R };
+    const c2 = { x: n.x + Math.cos(a + cs) * R, y: n.y + Math.sin(a + cs) * R };
+    const end = pullBack(p2, c2, INSET);
+    edges.push({ from: e.from, to: e.to, d: `M${f(p1.x)},${f(p1.y)} C${f(c1.x)},${f(c1.y)} ${f(c2.x)},${f(c2.y)} ${f(end.x)},${f(end.y)}` });
+    const idx = sampleCurve(u => cubic(p1, c1, c2, p2, u), 160);
+    // Loop labels go first so edge labels steer around them.
+    if (e.labels.length) requests.unshift({ idx, cands: [labelBox(cubic(p1, c1, c2, p2, 0.5), Math.cos(a), Math.sin(a), e.labels.join(', '))] });
+  }
+
+  // Place each label at the first candidate that clears other labels, states and edges.
+  const labels = [];
+  const blockers = [...nodes.values()].map(n => n.composite ? { x: n.x, y: n.y - n.h / 2 + HEAD / 2, w: n.w, h: HEAD } : n);
+  const overlap = (a, b, px = 3, py = 2) => Math.abs(a.x - b.x) < (a.w + b.w) / 2 + px && Math.abs(a.y - b.y) < (a.h + b.h) / 2 + py;
+  const score = (box, own) => {
+    let sc = 0;
+    for (const l of labels) if (overlap(box, l)) sc += 20;
+    for (const n of blockers) if (overlap(box, n, 2, 2)) sc += 20;
+    samples.forEach((pts, i) => {
+      if (i === own) return;
+      for (const p of pts) if (Math.abs(p.x - box.x) < box.w / 2 + 2 && Math.abs(p.y - box.y) < box.h / 2 + 2) sc += 1;
+    });
+    return sc;
+  };
+  for (const r of requests) {
+    let best = r.cands[0], bs = Infinity;
+    for (const c of r.cands) { const sc = score(c, r.idx); if (sc < bs) { bs = sc; best = c; } if (sc === 0) break; }
+    labels.push(best);
+  }
+
+  for (const l of labels) { grow(l.x - l.w / 2 - 2, l.y - l.h / 2); grow(l.x + l.w / 2 + 2, l.y + l.h / 2); }
+  return { nodes, composites, edges, labels, starts, bounds: b };
+}
+
+// ---------- SVG output ----------
+function svgStyle(id, t) {
+  const v = (name, val) => `var(--fsm-${name}, ${val})`;
+  return [
+    `#${id} { font-family: ${FONT}; }`,
+    `#${id} .bg { fill: ${v('bg', t.bg)}; }`,
+    `#${id} .edge { fill: none; stroke: ${v('stroke', t.stroke)}; stroke-width: 1.5; }`,
+    `#${id} .arrowhead, #${id} .start-dot { fill: ${v('stroke', t.stroke)}; }`,
+    `#${id} .state-shape { fill: ${v('fill', t.fill)}; stroke: ${v('stroke', t.stroke)}; stroke-width: 1.6; transition: fill .2s, stroke .2s; }`,
+    `#${id} .state-inner { fill: none; }`,
+    `#${id} .composite > .state-shape { fill: ${v('group', t.group)}; }`,
+    `#${id} .composite > .state-inner { fill: none; }`,
+    `#${id} .composite-name { fill: ${v('text', t.text)}; font-size: 13px; font-weight: 600; dominant-baseline: central; }`,
+    `#${id} .composite-rule { stroke: ${v('stroke', t.stroke)}; stroke-opacity: .3; }`,
+    `#${id} .state-name { fill: ${v('text', t.text)}; font-size: 14px; font-weight: 500; text-anchor: middle; dominant-baseline: central; }`,
+    `#${id} .edge-label { fill: ${v('label', t.label2)}; font-size: 12.5px; text-anchor: middle; dominant-baseline: central; paint-order: stroke; stroke: ${v('bg', t.bg)}; stroke-width: 4px; stroke-linejoin: round; }`,
+    `#${id} .state.is-active .state-shape { fill: ${v('active', t.active)}; stroke: ${v('accent', t.accent)}; stroke-width: 2.4; }`,
+    `#${id} .state.composite.is-active > .state-shape { fill: ${v('group', t.group)}; stroke: ${v('accent', t.accent)}; stroke-width: 2; }`,
+    `#${id} .state.is-active .state-inner { fill: none; }`,
+  ];
+}
+
+function buildSVG(model, geo, id, title) {
+  const t = THEMES[opts.theme], pad = 18, b = geo.bounds;
+  const x0 = Math.floor(b.minX - pad), y0 = Math.floor(b.minY - pad);
+  const W = Math.ceil(b.maxX + pad) - x0, H = Math.ceil(b.maxY + pad) - y0;
+  const marker = `url(#${id}-arrow)`;
+  const attrs = n => {
+    const cls = ['state', n.composite && 'composite', n.accept && 'accepting', n.name === model.start && 'initial'].filter(Boolean).join(' ');
+    return `class="${cls}" data-state="${esc(n.name)}"${n.parent !== null ? ` data-parent="${esc(n.parent)}"` : ''} transform="translate(${f(n.x)},${f(n.y)})"`;
+  };
+  const L = [];
+  L.push(`<svg xmlns="http://www.w3.org/2000/svg" id="${id}" class="fsm" viewBox="${x0} ${y0} ${W} ${H}" width="${W}" height="${H}" style="max-width:100%;height:auto" role="img" aria-labelledby="${id}-title">`);
+  L.push(`  <title id="${id}-title">${esc(title)}</title>`);
+  L.push('  <style>', ...svgStyle(id, t).map(s => '    ' + s), '  </style>');
+  L.push('  <defs>');
+  L.push(`    <marker id="${id}-arrow" viewBox="0 0 10 10" refX="5.6" refY="5" markerWidth="9" markerHeight="9" markerUnits="userSpaceOnUse" orient="auto">`);
+  L.push('      <path class="arrowhead" d="M0,0 L10,5 L0,10 L2.5,5 z"/>');
+  L.push('    </marker>');
+  L.push('  </defs>');
+  if (opts.bg) L.push(`  <rect class="bg" x="${x0}" y="${y0}" width="${W}" height="${H}"/>`);
+  if (geo.composites.length) {
+    L.push('  <g class="composites">');
+    for (const n of [...geo.composites].reverse()) {       // outermost first
+      const l = -n.w / 2, tp = -n.h / 2;
+      L.push(`    <g ${attrs(n)}>`);
+      L.push(`      <rect class="state-shape" x="${f(l)}" y="${f(tp)}" width="${f(n.w)}" height="${f(n.h)}" rx="14"/>`);
+      if (n.accept) L.push(`      <rect class="state-shape state-inner" x="${f(l + 4.5)}" y="${f(tp + 4.5)}" width="${f(n.w - 9)}" height="${f(n.h - 9)}" rx="10"/>`);
+      L.push(`      <line class="composite-rule" x1="${f(l)}" y1="${f(tp + HEAD)}" x2="${f(-l)}" y2="${f(tp + HEAD)}"/>`);
+      L.push(`      <text class="composite-name" x="${f(l + 14)}" y="${f(tp + HEAD / 2 + 1)}">${esc(n.name)}</text>`);
+      L.push('    </g>');
+    }
+    L.push('  </g>');
+  }
+  L.push('  <g class="edges">');
+  for (const s of geo.starts) {
+    L.push(`    <circle class="start-dot" cx="${f(s.x1)}" cy="${f(s.y1)}" r="3.5"/>`);
+    L.push(`    <path class="edge start-arrow" d="M${f(s.x1)},${f(s.y1)} L${f(s.x2)},${f(s.y2)}" marker-end="${marker}"/>`);
+  }
+  for (const e of geo.edges) L.push(`    <path class="edge" data-from="${esc(e.from)}" data-to="${esc(e.to)}" d="${e.d}" marker-end="${marker}"/>`);
+  L.push('  </g>');
+  L.push('  <g class="states">');
+  for (const n of geo.nodes.values()) {
+    if (n.composite) continue;
+    L.push(`    <g ${attrs(n)}>`);
+    if (n.r) {
+      L.push(`      <circle class="state-shape" r="${f(n.r)}"/>`);
+      if (n.accept) L.push(`      <circle class="state-shape state-inner" r="${f(n.r - 4.5)}"/>`);
+    } else {
+      L.push(`      <rect class="state-shape" x="${f(-n.w / 2)}" y="${f(-n.h / 2)}" width="${f(n.w)}" height="${f(n.h)}" rx="11"/>`);
+      if (n.accept) L.push(`      <rect class="state-shape state-inner" x="${f(-n.w / 2 + 4.5)}" y="${f(-n.h / 2 + 4.5)}" width="${f(n.w - 9)}" height="${f(n.h - 9)}" rx="7"/>`);
+    }
+    L.push(`      <text class="state-name">${esc(n.name)}</text>`);
+    L.push('    </g>');
+  }
+  L.push('  </g>');
+  if (geo.labels.length) {
+    L.push('  <g class="labels">');
+    for (const l of geo.labels) L.push(`    <text class="edge-label" x="${f(l.x)}" y="${f(l.y)}">${esc(l.text)}</text>`);
+    L.push('  </g>');
+  }
+  L.push('</svg>');
+  return { svg: L.join('\n'), view: { vb: `${x0} ${y0} ${W} ${H}`, W, H } };
+}
+
+
+// ================= SIM CORE (no DOM) =================
+// Units: inches, seconds, radians. Field origin at center, +y = "up" on screen.
+// Robot local frame: +x = robot's right (firing side), +y = robot's front.
+
+const FIELD = { half: 48, tapeOut: 42, tapeIn: 40, armHalf: 18, armW: 1 };
+
+const DEFAULT_PARAMS = {
+  speed: 12,          // in/s at drive 1.0
+  pivotRate: 180,     // deg/s at drive -1/1 pivot
+  wheelMismatch: 3,   // % random L/R gain difference per run
+  twRange: 9,         // in, coil-to-wire distance that trips track wire
+  beaconHalf: 5,      // deg, half-width of beacon slit
+  lostTime: 1.0,      // s, both FR boards white this long while following -> FOLLOW_LOST
+  roundTime: 120,     // s
+  startRadius: 18,    // in, random start within this distance of center
+  oppMax: 28,         // in, dead bot center within this square of center
+};
+
+// Sensor mounts (local x,y). FR inner/outer straddle the tape edge on the right.
+const MOUNTS = {
+  fl: [-4, 4.5], fri: [3.3, 4.5], fro: [4.8, 4.5], bl: [-4, -4.5], br: [4, -4.5],
+  coil: [4.8, 0], beacon: [5, 0], launcher: [5, 0],
+};
+const ROBOT_HALF = 5; // 10x10 body
+
+// ---------- RNG ----------
+function mulberry32(a) { return () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+
+// ---------- geometry helpers ----------
+const TAPE_RECTS = (() => {
+  const o = FIELD.tapeOut, i = FIELD.tapeIn, a = FIELD.armHalf, w = FIELD.armW;
+  return [
+    [-o, i, o, o], [-o, -o, o, -i], [-o, -o, -i, o], [i, -o, o, o],      // border
+    [-w, -a, w, a], [-a, -w, a, w],                                      // cross
+  ];
+})();
+const onTape = (x, y) => TAPE_RECTS.some(([x0, y0, x1, y1]) => x >= x0 && x <= x1 && y >= y0 && y <= y1);
+function toWorld(r, lx, ly) { // heading th = direction of robot front
+  const c = Math.cos(r.th), s = Math.sin(r.th);
+  // front vector (c,s); right vector (s,-c)
+  return [r.x + lx * s + ly * c, r.y - lx * c + ly * s];
+}
+const rightDir = r => [Math.sin(r.th), -Math.cos(r.th)];
+function corners(cx, cy, th, hw, hh) {
+  const c = Math.cos(th), s = Math.sin(th);
+  return [[-hw, -hh], [hw, -hh], [hw, hh], [-hw, hh]].map(([lx, ly]) => [cx + lx * s + ly * c, cy - lx * c + ly * s]);
+}
+function polysOverlap(A, B) { // SAT for convex polygons
+  for (const P of [A, B]) for (let i = 0; i < P.length; i++) {
+    const [x1, y1] = P[i], [x2, y2] = P[(i + 1) % P.length], nx = y2 - y1, ny = x1 - x2;
+    let amin = Infinity, amax = -Infinity, bmin = Infinity, bmax = -Infinity;
+    for (const [x, y] of A) { const d = x * nx + y * ny; amin = Math.min(amin, d); amax = Math.max(amax, d); }
+    for (const [x, y] of B) { const d = x * nx + y * ny; bmin = Math.min(bmin, d); bmax = Math.max(bmax, d); }
+    if (amax < bmin || bmax < amin) return false;
+  }
+  return true;
+}
+function segDist(px, py, ax, ay, bx, by) {
+  const dx = bx - ax, dy = by - ay, t = clamp01(((px - ax) * dx + (py - ay) * dy) / (dx * dx + dy * dy));
+  return Math.hypot(px - ax - t * dx, py - ay - t * dy);
+}
+const clamp01 = t => Math.max(0, Math.min(1, t));
+function rayRect(ox, oy, dx, dy, poly) { // nearest t>0 where ray hits polygon edge
+  let best = Infinity;
+  for (let i = 0; i < poly.length; i++) {
+    const [ax, ay] = poly[i], [bx, by] = poly[(i + 1) % poly.length];
+    const ex = bx - ax, ey = by - ay, den = dx * ey - dy * ex;
+    if (Math.abs(den) < 1e-9) continue;
+    const t = ((ax - ox) * ey - (ay - oy) * ex) / den, u = ((ax - ox) * dy - (ay - oy) * dx) / den;
+    if (t > 0 && u >= 0 && u <= 1) best = Math.min(best, t);
+  }
+  return best;
+}
+
+// ---------- program (FSM text + @actions) ----------
+function parseProgram(text) {
+  const actions = {}, actErrors = [], fsmLines = [];
+  text.split(/\r?\n/).forEach((raw, i) => {
+    const t = raw.trim();
+    if (t.startsWith('@')) {
+      const m = t.match(/^@\s*([^:]+?)\s*:\s*(.*)$/);
+      if (!m) { actErrors.push(`Line ${i + 1}: expected "@State: cmd; cmd"`); fsmLines.push(''); return; }
+      const body = m[2].replace(/(^|\s)(#|\/\/).*$/, '');
+      actions[m[1]] = body.split(';').map(s => s.trim()).filter(Boolean).map(s => s.split(/\s+/));
+      for (const c of actions[m[1]]) { const e = checkCmd(c); if (e) actErrors.push(`Line ${i + 1}: ${e}`); }
+      fsmLines.push('');
+    } else fsmLines.push(raw);
+  });
+  const model = parse(fsmLines.join('\n'));
+  const states = {};
+  for (const s of model.states) states[s.name] = { parent: s.parent, initial: s.initial, on: {}, accept: s.accept };
+  for (const e of model.edges) for (const ev of (e.labels.length ? e.labels : [e.to])) if (!(ev in states[e.from].on)) states[e.from].on[ev] = e.to;
+  for (const n of Object.keys(actions)) if (!states[n]) actErrors.push(`@${n}: no such state`);
+  return { model, def: { initial: model.start, states }, actions, errors: [...model.errors, ...actErrors] };
+}
+const SENSORS = ['fl', 'fri', 'fro', 'bl', 'br', 'front', 'rear', 'tape', 'trackwire', 'beacon', 'bumpf', 'bumpb'];
+function checkCmd(c) {
+  const [k, ...a] = c, num = v => v !== undefined && !isNaN(parseFloat(v));
+  switch (k) {
+    case 'drive': return num(a[0]) && num(a[1]) ? null : 'drive needs two numbers (-1..1), e.g. "drive 1 1"';
+    case 'stop': case 'follow': case 'fire': case 'done': return null;
+    case 'timer': return a[0] && /^-?[\d.]+(s|in|deg)?$/.test(a[1] || '') ? null : 'timer NAME 2s | 40in | 90deg';
+    case 'count': return a[0] && num(a[1]) && a[2] && a[3] ? null : 'count NAME N DONE_EVENT MORE_EVENT';
+    case 'reset': return a[0] ? null : 'reset NAME';
+    case 'post': return a[0] ? null : 'post EVENT';
+    case 'if': return SENSORS.includes(a[0]) && a[1] ? null : `if SENSOR EVENT (sensors: ${SENSORS.join(', ')})`;
+    default: return `unknown command "${k}"`;
+  }
+}
+
+// ---------- world ----------
+function makeWorld(seed, P) {
+  const rnd = mulberry32(seed), R = (a, b) => a + (b - a) * rnd();
+  // towers: 3, outside the field, front face on the field edge
+  const towers = [];
+  for (let tries = 0; towers.length < 3 && tries < 200; tries++) {
+    const side = Math.floor(rnd() * 4), pos = R(-30, 30);
+    if (towers.some(t => t.side === side && Math.abs(t.pos - pos) < 18)) continue;
+    towers.push({ side, pos, marked: Math.floor(rnd() * 3), scored: false });
+  }
+  for (const t of towers) {
+    // outward normal n, along-face unit u
+    const n = [[0, 1], [1, 0], [0, -1], [-1, 0]][t.side];
+    const u = [n[1], -n[0]];
+    t.n = n; t.u = u;
+    t.cx = n[0] * FIELD.half + u[0] * t.pos; t.cy = n[1] * FIELD.half + u[1] * t.pos;
+    t.holes = [-4, 0, 4].map(o => [t.cx + u[0] * o, t.cy + u[1] * o]);
+    const e = 6; t.wire = [[t.cx - u[0] * e, t.cy - u[1] * e], [t.cx + u[0] * e, t.cy + u[1] * e]];
+  }
+  // start
+  const sa = R(0, 2 * Math.PI), sr = Math.sqrt(rnd()) * P.startRadius;
+  const robot = { x: Math.cos(sa) * sr, y: Math.sin(sa) * sr, th: R(-Math.PI, Math.PI) };
+  // opponent: inside, clear of start
+  let opp;
+  for (let i = 0; i < 500; i++) {
+    opp = { x: R(-P.oppMax, P.oppMax), y: R(-P.oppMax, P.oppMax), th: R(-Math.PI, Math.PI) };
+    if (Math.hypot(opp.x - robot.x, opp.y - robot.y) > 26) break;
+  }
+  opp.poly = corners(opp.x, opp.y, opp.th, 5.5, 5.5);
+  const gL = 1 + R(-1, 1) * P.wheelMismatch / 100, gR = 1 + R(-1, 1) * P.wheelMismatch / 100;
+  return { towers, robot, opp, gL, gR };
+}
+
+// ---------- sim ----------
+function createSim(program, params, seed) {
+  const P = { ...DEFAULT_PARAMS, ...params };
+  const W = makeWorld(seed, P);
+  const r = W.robot, def = program.def;
+  const S = {
+    seed, P, W, r, t: 0, balls: 15, hits: 0, oppHits: 0, towersScored: 0,
+    leaf: null, cmd: [0, 0], following: false, lostT: 0, lostFired: false,
+    timers: {}, counters: {}, queue: [], log: [], shots: [], trail: [],
+    sens: {}, prev: {}, status: 'running', reason: '', stuckT: 0, contactT: 0, blockedDir: 0,
+  };
+  const b = 2 * P.speed / (P.pivotRate * Math.PI / 180); // effective wheelbase
+  const path = s => { const p = []; for (; s != null; s = def.states[s]?.parent) p.unshift(s); return p; };
+  const enter = s => { while (def.states[s]?.initial) s = def.states[s].initial; return s; };
+  const log = (m, kind = '') => { S.log.push({ t: S.t, m, kind }); if (S.log.length > 400) S.log.shift(); };
+
+  function runActions(state) {
+    for (const c of program.actions[state] || []) {
+      const [k, ...a] = c;
+      if (k === 'drive') { S.cmd = [clampN(+a[0]), clampN(+a[1])]; S.following = false; }
+      else if (k === 'stop') { S.cmd = [0, 0]; S.following = false; }
+      else if (k === 'follow') { S.following = true; S.lostT = 0; S.lostFired = false; }
+      else if (k === 'timer') {
+        const m = a[1].match(/^(-?[\d.]+)(s|in|deg)?$/), v = +m[1];
+        const secs = m[2] === 'in' ? v / P.speed : m[2] === 'deg' ? v / P.pivotRate : v;
+        S.timers[a[0]] = { left: secs, owner: state };
+      }
+      else if (k === 'fire') fire();
+      else if (k === 'count') {
+        const n = (S.counters[a[0]] || 0) + 1;
+        if (n >= +a[1]) { S.counters[a[0]] = 0; post(a[2]); } else { S.counters[a[0]] = n; post(a[3]); }
+      }
+      else if (k === 'reset') S.counters[a[0]] = 0;
+      else if (k === 'post') post(a[0]);
+      else if (k === 'if') { if (S.sens[a[0]]) post(a[1]); }
+      else if (k === 'done') { S.status = 'done'; S.reason = 'FSM reached done'; }
+    }
+  }
+  const clampN = v => Math.max(-1, Math.min(1, v || 0));
+  const post = ev => S.queue.push(ev);
+
+  function transition(src, tgt, ev) {
+    const old = S.leaf, nl = enter(tgt);
+    const ps = path(src), pt = path(tgt);
+    let k = 0; while (k < ps.length && k < pt.length && ps[k] === pt[k]) k++;
+    if (ps.includes(tgt)) k = Math.min(k, pt.length - 1);       // target is src or its ancestor: exit + re-enter it
+    else if (pt.includes(src)) k = Math.min(k, ps.length - 1);  // src is an ancestor of target: exit + re-enter src
+    const po = path(old), pn = path(nl);
+    const exited = po.slice(k), entered = pn.slice(k);
+    for (const [name, tm] of Object.entries(S.timers)) if (exited.includes(tm.owner)) delete S.timers[name];
+    S.leaf = nl;
+    log(`${ev}: ${old} → ${nl}`, 'tr');
+    for (const s of entered) runActions(s);
+  }
+  function dispatch(ev) {
+    const p = path(S.leaf);
+    for (let i = p.length - 1; i >= 0; i--) {
+      const to = def.states[p[i]]?.on[ev];
+      if (to !== undefined) { transition(p[i], to, ev); return true; }
+    }
+    return false;
+  }
+
+  function fire() {
+    if (S.balls <= 0) { log('fire: out of balls', 'bad'); return; }
+    S.balls--;
+    const [ox, oy] = toWorld(r, ...MOUNTS.launcher), [dx, dy] = rightDir(r);
+    let hitMsg = 'miss', end = [ox + dx * 60, oy + dy * 60], ok = false;
+    const tOpp = rayRect(ox, oy, dx, dy, W.opp.poly);
+    let best = tOpp < 120 ? tOpp : Infinity, kind = best < Infinity ? 'opp' : null, tw = null, hole = -1;
+    for (const T of W.towers) {
+      const den = dx * T.n[0] + dy * T.n[1];
+      if (den < 0.6) continue;                         // must be heading at the face, within ~53°
+      const tt = ((T.cx - ox) * T.n[0] + (T.cy - oy) * T.n[1]) / den;
+      if (tt <= 0 || tt >= best) continue;
+      const px = ox + dx * tt, py = oy + dy * tt, u = (px - T.cx) * T.u[0] + (py - T.cy) * T.u[1];
+      if (Math.abs(u) > 6) continue;
+      best = tt; kind = 'tower'; tw = T; S._u = u; S._ang = Math.asin(dx * T.u[0] + dy * T.u[1]) * 180 / Math.PI; hole = [-4, 0, 4].findIndex(h => Math.abs(u - h) <= 0.96);
+    }
+    if (kind === 'opp') { S.oppHits++; ok = true; hitMsg = `HIT opponent (${S.oppHits})`; end = [ox + dx * best, oy + dy * best]; }
+    else if (kind === 'tower') {
+      end = [ox + dx * best, oy + dy * best];
+      if (hole < 0) hitMsg = 'hit tower face (missed holes)';
+      else if (hole === tw.marked) { ok = true; if (!tw.scored) { tw.scored = true; S.towersScored++; } hitMsg = `MARKED hole ✓ (towers scored: ${S.towersScored})`; }
+      else hitMsg = `through unmarked hole ${hole + 1}`;
+    }
+    S.shots.push({ from: [ox, oy], to: end, ok, t: S.t, u: kind === 'tower' ? S._u : null, ang: kind === 'tower' ? S._ang : null });
+    log(`fire #${15 - S.balls}: ${hitMsg}`, ok ? 'good' : 'bad');
+  }
+
+  function readSensors() {
+    const s = {};
+    for (const k of ['fl', 'fri', 'fro', 'bl', 'br']) s[k] = onTape(...toWorld(r, ...MOUNTS[k]));
+    s.front = s.fl || s.fri || s.fro; s.rear = s.bl || s.br; s.tape = s.front || s.rear;
+    const [cx, cy] = toWorld(r, ...MOUNTS.coil);
+    s.trackwire = W.towers.some(T => segDist(cx, cy, ...T.wire[0], ...T.wire[1]) <= P.twRange);
+    const [bx, by] = toWorld(r, ...MOUNTS.beacon), [rx, ry] = rightDir(r);
+    const vx = W.opp.x - bx, vy = W.opp.y - by, d = Math.hypot(vx, vy);
+    s.beacon = d > 1 && Math.acos(Math.max(-1, Math.min(1, (vx * rx + vy * ry) / d))) <= P.beaconHalf * Math.PI / 180;
+    // bumpers: probe slightly beyond front/back faces
+    const probe = side => polysOverlap(corners(...toWorld(r, 0, side * (ROBOT_HALF + 0.2)), r.th, ROBOT_HALF, 0.25), W.opp.poly);
+    s.bumpf = probe(1) || S.blockedDir > 0; s.bumpb = probe(-1) || S.blockedDir < 0;
+    return s;
+  }
+  function edgeEvents() {
+    const s = S.sens, p = S.prev, rise = k => s[k] && !p[k], fall = k => !s[k] && p[k];
+    if (rise('front')) post('FRONT_TAPE');
+    if (fall('front')) post('FRONT_CLEAR');
+    for (const k of ['fl', 'fri', 'fro', 'bl', 'br']) { if (rise(k)) post(k.toUpperCase() + '_ON'); if (fall(k)) post(k.toUpperCase() + '_OFF'); }
+    if (rise('rear')) post('REAR_TAPE');
+    if (rise('trackwire')) post('TRACKWIRE');
+    if (fall('trackwire')) post('TRACKWIRE_LOST');
+    if (rise('beacon')) post('BEACON');
+    if (fall('beacon')) post('BEACON_LOST');
+    if (rise('bumpf')) post('BUMP_FRONT');
+    if (rise('bumpb')) post('BUMP_BACK');
+    if (rise('bumpf') || rise('bumpb')) post('BUMP');
+  }
+
+  function step(dt) {
+    if (S.status !== 'running') return;
+    // timers
+    for (const [name, tm] of Object.entries(S.timers)) { tm.left -= dt; if (tm.left <= 0) { delete S.timers[name]; post(name); } }
+    // follow controller (tape on right: FR outer on tape, FR inner on white)
+    let [L, Rr] = S.cmd;
+    if (S.following) {
+      const i = S.sens.fri, o = S.sens.fro;
+      if (o && !i) [L, Rr] = [1, 1];            // on the edge -> straight
+      else if (o && i) [L, Rr] = [0.2, 1];      // drifting onto tape -> steer left
+      else if (i) [L, Rr] = [-0.5, 1];          // outer past the tape -> hard left
+      else [L, Rr] = [1, 0.45];                 // tape lost to the right -> steer right
+      if (!i && !o) { S.lostT += dt; if (S.lostT >= P.lostTime && !S.lostFired) { S.lostFired = true; post('FOLLOW_LOST'); } }
+      else { S.lostT = 0; S.lostFired = false; }
+    }
+    const vl = L * P.speed * W.gL, vr = Rr * P.speed * W.gR;
+    const v = (vl + vr) / 2, w = (vr - vl) / b;
+    const nx = r.x + v * Math.cos(r.th) * dt, ny = r.y + v * Math.sin(r.th) * dt, nth = r.th + w * dt;
+    if (!polysOverlap(corners(nx, ny, nth, ROBOT_HALF, ROBOT_HALF), W.opp.poly)) { r.x = nx; r.y = ny; r.th = nth; S.contactT = 0; S.blockedDir = 0; }
+    else { S.contactT += dt; S.blockedDir = Math.abs(v) > 0.5 ? Math.sign(v) : 0; }
+    S.t += dt;
+    if (!S.trail.length || Math.hypot(r.x - S.trail.at(-1)[0], r.y - S.trail.at(-1)[1]) > 1) S.trail.push([r.x, r.y]);
+    // sensors + events
+    S.prev = S.sens; S.sens = readSensors(); edgeEvents();
+    let guard = 0;
+    while (S.queue.length && guard++ < 50) dispatch(S.queue.shift());
+    S.queue.length = 0;
+    // rules
+    if (S.status === 'done' && S.towersScored >= 2 && S.oppHits >= 2) S.status = 'running';
+    if (S.status !== 'running') {}
+    else if (Math.abs(r.x) > FIELD.tapeOut || Math.abs(r.y) > FIELD.tapeOut) { S.status = 'dq'; S.reason = 'DQ: more than half the robot past the border'; log(S.reason, 'bad'); }
+    else if (S.contactT > 5) { S.status = 'dq'; S.reason = 'DQ: stayed in contact > 5 s'; log(S.reason, 'bad'); }
+    else if (S.towersScored >= 2 && S.oppHits >= 2) { S.status = 'win'; S.reason = `Min spec done in ${S.t.toFixed(1)} s`; log(S.reason, 'good'); }
+    else if (S.t >= P.roundTime) { S.status = 'timeout'; S.reason = 'Out of time (2:00)'; log(S.reason, 'bad'); }
+  }
+
+  // boot
+  S.sens = readSensors(); S.prev = { ...S.sens };
+  S.leaf = enter(def.initial);
+  log(`start in ${S.leaf}`);
+  for (const s of path(S.leaf)) runActions(s);
+  while (S.queue.length) dispatch(S.queue.shift());
+  S.step = step; S.path = () => path(S.leaf);
+  return S;
+}
+
+// ================= design.md HSM robot (added) =================
+// ---------- design constants (§11), sim units: inches, seconds ----------
+const DK = {
+  SPEED: DEFAULT_PARAMS.speed, PIVRATE: DEFAULT_PARAMS.pivotRate,
+  BASE: 0.6, CREEP: 0.35, PIVOT: 0.4, RAM: 0.9, STEER_SLOW: 0.4,
+  FIND_SEARCH_S: 23, FP_BACKUP_IN: 4, CREEP_MAX_IN: 8, ALIGN_MAX_DEG: 120, FOLLOW_MAX_S: 15,
+  CORNER_CREEP_MAX_IN: 9, TAPE_W: 2, CORNER_PIVOT_MAX: 120, STEER_MAX_S: 1, LOST_MAX_IN: 6, REALIGN_MAX_DEG: 60,
+  TURN_BACKOFF_IN: 3, TURN_MIN_DEG: 100, TURN_MAX_DEG: 240,
+  RAM_MAX_IN: 36, FRONT_OFFSET: 4.5, TOTAPE_MAX_IN: 12, REJOIN_CREEP_IN: 8, REJOIN_PIVOT_DEG: 200, AIM_SWEEP_DEG: 90,
+  ATTACK_COOLDOWN_S: 5, ATTACK_MAX_TRIES: 3, TOWERS_TO_SHOOT: 2,
+  FIRE_PULSE_S: 0.1, SHOT_SETTLE_S: 0.5, TURNBACK_MAX_DEG: 150,
+  ARM_MAX_IN: 18,         // sim cross arm: center to tip
+  TRACK_KP: 0.25, TRACK_KH: 0.15,   // FIX.twoRow gains: sideways offset, angle (front minus back)
+  TOWER_SEARCH_IN: 30,    // creep this far after the track wire trips, looking for the tower's tape mark
+
+  USE_TRACKWIRE: false,     // v11: towers are found only by the side tower-tape sensor seeing the banner (MARK_SEEN)
+  SHOOT_EVERY_TOWER: false, // v12: 6 balls only, so don't re-shoot a tower we know we shot (other towers are never skipped)
+  TOWER_SAME_IN: 10, EDGE_LEN_IN: 82,     // two tower sightings closer than this along the same edge are the same tower
+  ATTACK_SHOTS: 3, ATTACK_MOVE_S: 0.5, BEACON_CENTER_MAX_IN: 12,   // v12: 3 shots at the dead robot, driving 0.5 s along the tape between shots
+  BALLS: 6,               // v12: only 6 balls total; keep ATTACK_SHOTS in reserve until the attack is done
+};
+const inS = (inch, s) => inch / (DK.SPEED * s);
+const degS = (deg, s) => deg / (DK.PIVRATE * s);
+
+// ---------- robot model (design.md §2.3, scaled to the sim's 10x10 robot) ----------
+const D_HALF = 5;
+const D_LAUNCHER = [5, 0], D_COIL = [4.8, 0], D_BEACON = [-5, 0], D_MARK = [5, 0];
+// Vertical banner (black stripe) hanging on the tower face below the marked hole (Sluggy Potter spec, Fig. 2-3).
+const MARK_W = 1, MARK_RANGE = 6;   // banner width (in), and how far the side tower-tape sensor can see it
+function markCorners(T) {   // for drawing: the stripe on the tower face, shown 1.5" deep into the tower in the top view
+  const h = [-4, 0, 4][T.marked], [nx, ny] = T.n, [ux, uy] = T.u, bx = T.cx + ux * h, by = T.cy + uy * h;
+  return [[-MARK_W / 2, 0], [MARK_W / 2, 0], [MARK_W / 2, 1.5], [-MARK_W / 2, 1.5]].map(([a, d]) => [bx + ux * a + nx * d, by + uy * a + ny * d]);
+}   // shooter + coil on the right side, beacon on the left
+// Tape sensors: 1.5" apart side to side; the middle sensor of each row sits 0.5" further out (FC 0.5" ahead, BC 0.5" behind).
+const D_MOUNT = { fl: [-1.5, 4.5], fc: [0, 5.0], fr: [1.5, 4.5], mc: [0, 0], bl: [-1.5, -4.5], bc: [0, -5.0], br: [1.5, -4.5] };
+const BIT = { fl: 0, fc: 1, fr: 2, mc: 3, bl: 4, bc: 5, br: 6 };
+const ON = (m, k) => (m >> BIT[k]) & 1;
+
+// One design robot run. Same interface as createSim(): step(dt), path(), leaf, log, shots, trail, status.
+function createDesignSim(params, seed, fix) {
+  const P = { ...DEFAULT_PARAMS, ...(params || {}) };
+  const FIX = fix || {};
+  const W = makeWorld(seed, P), r = W.robot;
+  const b = 2 * P.speed / (P.pivotRate * Math.PI / 180);
+  const S = { t: 0, status: 'running', reason: '', balls: DK.BALLS, oppHits: 0, towersScored: 0, contactT: 0, blockedDir: 0,
+    cmd: [0, 0], mask: 0, sens: {}, q: [], timers: {}, log: [], shots: [], trail: [], design: true, seed, W, r, leaf: null,
+    stats: { perimT: null, corners: 0, lineLost: 0, turnarounds: 0, ramHits: 0, attacks: 0, shots: 0, towerSeen: 0, towerDismissed: 0, findPerim: 0, alignFail: 0 } };
+  const log = (m, kind = 'tr') => { S.log.push({ t: S.t, m, kind }); if (S.log.length > 400) S.log.shift(); };
+
+  // ----- shared variables (§8.3, §9.6) -----
+  const V = { fieldOnRight: true, edgeIndex: 0, travelDir: 1, attackDone: false, towersShot: 0, attackTries: 0,
+    beaconIgnoreUntil: 0, lastShotTower: -1, shotTowers: [], along: NaN, currentTowerEdge: -1, nextLineIsPerimeter: false, bumpTurnLeft: false };
+  const F_FIELD = () => V.fieldOnRight ? 'fr' : 'fl', F_OUT = () => V.fieldOnRight ? 'fl' : 'fr';
+  const B_FIELD = () => V.fieldOnRight ? 'br' : 'bl';
+  const frontCount = m => ON(m, 'fl') + ON(m, 'fc') + ON(m, 'fr');
+  const isCorner = m => ON(m, 'fc') && ON(m, F_FIELD()) && !ON(m, F_OUT()) && !ON(m, B_FIELD());
+  // 1.5" spacing (< 2" tape): while the robot's center is on the tape, FC can't leave a straight edge sideways.
+  // So FC going OFF with only the field-side sensor on = FC ran off the END of the edge = corner.
+  const isCornerEnd = m => FIX.twoRow ? (!ON(m, 'fc') && ON(m, 'fl') && ON(m, 'fr'))      // FC ran off the end, both sides still on it
+                                     : (!ON(m, 'fc') && ON(m, F_FIELD()) && !ON(m, F_OUT()));
+  // (twoRow: FC off with ONE side on is the front row drifting sideways — steer back, don't call it a corner)
+  const isAligned = m => ON(m, 'fc') && (ON(m, 'mc') || (FIX.relaxAlign && ON(m, 'bc')));
+  const isPerimAligned = m => FIX.relaxAlign ? (ON(m, 'fc') && ON(m, 'bc')) : (isAligned(m) && ON(m, 'bc'));
+  const backReachedCorner = m => (ON(m, 'bc') && ON(m, B_FIELD())) || (!ON(m, 'bl') && !ON(m, 'bc') && !ON(m, 'br'));
+
+  // ----- motion (§6) -----
+  // FIX.reverseOnBump (v14): after a bump the robot DRIVES BACKWARD around the loop instead of turning around, so the
+  // side shooter keeps facing the towers. All the FSMs run unchanged on a "virtual robot" turned 180°: its front row is
+  // the physical back row (left/right swapped), its wheels are the physical wheels swapped and reversed, its bumpers swap.
+  const motors = (L, R) => { S.cmd = V.reverse ? [-R, -L] : [L, R]; };
+  const mirrorMask = m => (ON(m, 'br') << BIT.fl) | (ON(m, 'bc') << BIT.fc) | (ON(m, 'bl') << BIT.fr) | (ON(m, 'mc') << BIT.mc)
+                        | (ON(m, 'fr') << BIT.bl) | (ON(m, 'fc') << BIT.bc) | (ON(m, 'fl') << BIT.br);
+  const stop = () => motors(0, 0);
+  const fwd = s => motors(s, s), rev = s => motors(-s, -s);
+  const pivotToward = s => V.fieldOnRight ? motors(s, -s) : motors(-s, s);
+  const pivotAway = s => V.fieldOnRight ? motors(-s, s) : motors(s, -s);
+  const followStep = (m, s) => {
+    if (ON(m, 'fc')) motors(s, s);
+    else if (ON(m, 'fl') && !ON(m, 'fr')) motors(s * DK.STEER_SLOW, s);
+    else if (ON(m, 'fr') && !ON(m, 'fl')) motors(s, s * DK.STEER_SLOW);
+  };
+  const followStepCenter = (m, s) => {   // FC + one side: nudge toward that side (keeps a 1.5"-spaced row centered)
+    if (ON(m, 'fl') && !ON(m, 'fr')) motors(s * 0.8, s); else if (ON(m, 'fr') && !ON(m, 'fl')) motors(s, s * 0.8); else motors(s, s); };
+  // FIX.twoRow: straighten on straight lines using BOTH rows. Each row gives where the line is under it
+  // (left -1.5 … right +1.5 in, from which of its 3 sensors are on). Front and back together give the robot's
+  // sideways offset (average) and its angle to the line (difference), and the robot steers to zero both.
+  let lastEf = 0, lastEb = 0;
+  const rowPos = (l, c, r, last) => (l && c && !r) ? -0.75 : (r && c && !l) ? 0.75 : (l && !c && !r) ? -1.5 : (r && !c && !l) ? 1.5 : (c) ? 0 : last;
+  const trackStep = (m, sp) => {
+    const ef = lastEf = rowPos(ON(m, 'fl'), ON(m, 'fc'), ON(m, 'fr'), lastEf);
+    const eb = lastEb = rowPos(ON(m, 'bl'), ON(m, 'bc'), ON(m, 'br'), lastEb);
+    const st = Math.max(-0.7, Math.min(0.7, DK.TRACK_KP * (ef + eb) / 2 + DK.TRACK_KH * (ef - eb)));   // + = turn right
+    motors(sp * (1 + st), sp * (1 - st));
+  };
+  const revFollowStep = (m, s) => {
+    if (ON(m, 'bl') && !ON(m, 'br')) motors(-s * DK.STEER_SLOW, -s);
+    else if (ON(m, 'br') && !ON(m, 'bl')) motors(-s, -s * DK.STEER_SLOW);
+    else motors(-s, -s);
+  };
+
+  // ----- timers: one per machine (§5.4) -----
+  const timer = (name, secs) => { S.timers[name] = S.t + secs; };
+  const stopTimer = name => { delete S.timers[name]; };
+  const ev = (type, param = 0) => ({ type, param });
+
+  // ----- generic sub-machine: states { entry, exit, on } ; on(e) returns e (pass up), null (consumed), or ev (returned up) -----
+  function machine(name, first, states) {
+    const M = { name, cur: null, states };
+    M.go = next => { const st = states[M.cur]; if (st && st.exit) st.exit(); stop(); stopTimer(name); if (!(name === 'FW' && /^(OnLine|Steer)/.test(M.cur || '') && /^(OnLine|Steer)/.test(next))) log(`  ${name}: ${M.cur} → ${next}`); M.cur = next; const n = states[next]; if (n.entry) n.entry(); };
+    M.init = () => { M.cur = null; M.go(first); };
+    M.exit = () => { const st = states[M.cur]; if (st && st.exit) st.exit(); stop(); stopTimer(name); };
+    M.run = e => { const st = states[M.cur]; return st.on ? st.on(e) : e; };
+    return M;
+  }
+  const mine = (e, name) => e.type === 'ES_TIMEOUT' && e.param === name;
+
+  // Pivot until a tape pattern is seen. As designed: any TAPE_CHANGED whose mask matches ends it.
+  // FIX.risingFC: FC must turn ON during the pivot (it may already be on, or still on the old line, at the start).
+  // FIX.centerAlign: FC lands on the tape's near edge, so keep pivoting ~13 deg (asin(1/4.5)) to center it.
+  // FIX.alignSettle (settle: true) for pivots that return to the perimeter (TurnBack, TurnAround, Rejoin):
+  // the robot rides the inner tape edge, so its center (MC) is often just off the tape and "FC+MC(+BC)" never lights;
+  // the pivot then ran to its safety limit and left the robot crooked. End the pivot when FC lands (then center 13°)
+  // and let Follow's line-following straighten it.
+  function alignState(name, { start, cond, gate = () => true, done, safety, safetyDeg, rising = true, settle = false }) {
+    let phase = '', fcOff = false;
+    const useSettle = () => settle && FIX.alignSettle;
+    const finish = () => done();
+    return {
+      entry() { phase = 'seek'; fcOff = !ON(S.mask, 'fc'); start(); timer(name, degS(safetyDeg(), DK.PIVOT)); },
+      on(e) {
+        if (e.type === 'TAPE_CHANGED') {
+          const m = e.param; if (!ON(m, 'fc')) fcOff = true;
+          const ok = useSettle() ? ON(m, 'fc') : cond(m);
+          if (phase === 'seek' && ok && gate() && (!FIX.risingFC || !rising || fcOff)) {
+            if (FIX.centerAlign) { phase = 'center'; timer(name, degS(13, DK.PIVOT)); return null; }
+            return finish();
+          }
+          return null;
+        }
+        if (mine(e, name)) return phase === 'center' ? finish() : safety();
+        return e.type === 'FRONT_BUMPED' || e.type === 'BEACON_FOUND' || e.type === 'TRACKWIRE' ? e : null;
+      } };
+  }
+
+  // =============== 9.1 Find perimeter ===============
+  let bumpPhase = '';
+  const FP = machine('FP', 'DriveForward', {
+    DriveForward: {
+      entry() { fwd(DK.BASE); timer('FP', DK.FIND_SEARCH_S); V.frontClear = frontCount(S.mask) === 0; },
+      on(e) {
+        if (e.type === 'TAPE_CHANGED' && frontCount(e.param) === 0) { V.frontClear = true; return null; }
+        if (e.type === 'TAPE_CHANGED' && FIX.crossTurn && !V.frontClear) { if (FIX.twoRow) trackStep(e.param, DK.BASE); return null; }   // still on the arm we came down: follow it out
+        if (e.type === 'TAPE_CHANGED' && frontCount(e.param) > 0) { FP.go('CenterOverTape'); return null; }
+        if (e.type === 'FRONT_BUMPED' || mine(e, 'FP')) { FP.go('BumpRecovery'); return null; }
+        return e;
+      } },
+    BumpRecovery: {
+      entry() { bumpPhase = 'back'; rev(DK.CREEP); timer('FP', inS(DK.FP_BACKUP_IN, DK.CREEP)); },
+      on(e) {
+        const startTurn = () => { bumpPhase = 'turn'; V.bumpTurnLeft = !V.bumpTurnLeft; V.bumpTurnLeft ? motors(-DK.PIVOT, DK.PIVOT) : motors(DK.PIVOT, -DK.PIVOT); timer('FP', degS(90, DK.PIVOT)); };
+        if (bumpPhase === 'back' && (mine(e, 'FP') || e.type === 'REAR_BUMPED')) { startTurn(); return null; }
+        if (bumpPhase === 'turn' && mine(e, 'FP')) { FP.go('DriveForward'); return null; }
+        return e;
+      } },
+    CenterOverTape: {
+      entry() { fwd(DK.CREEP); timer('FP', inS(DK.CREEP_MAX_IN, DK.CREEP)); if (FIX.entryChecks && ON(S.mask, 'mc')) post(ev('INTERNAL_GO', 'AlignToLine')); },
+      on(e) {
+        if (FIX.centerOverTape && V.cotExtra) { if (mine(e, 'FP')) { V.cotExtra = false; FP.go('AlignToLine'); } return null; }
+        if (FIX.centerOverTape && e.type === 'TAPE_CHANGED' && ON(e.param, 'mc')) { V.cotExtra = true; timer('FP', inS(DK.TAPE_W / 2, DK.CREEP)); return null; }
+        if ((e.type === 'TAPE_CHANGED' && ON(e.param, 'mc')) || mine(e, 'FP') || (e.type === 'INTERNAL_GO')) { FP.go('AlignToLine'); return null; }
+        if (e.type === 'FRONT_BUMPED') { FP.go('BumpRecovery'); return null; }
+        return e;
+      } },
+    AlignToLine: alignState('FP', {
+      start() {
+        V.alignRight = false;   // side shooter on the right: pivot LEFT so the field ends up on the robot's left (counterclockwise)
+        V.alignRight ? motors(DK.PIVOT, -DK.PIVOT) : motors(-DK.PIVOT, DK.PIVOT);
+      },
+      cond: m => isAligned(m), safetyDeg: () => 200,
+      done() { V.fieldOnRight = V.alignRight; if (V.nextLineIsPerimeter) return ev('PERIMETER_FOUND'); FP.go('FollowLine'); return null; },
+      safety() { S.stats.alignFail++; FP.go('DriveForward'); return null; } }),
+    FollowLine: {
+      entry() { V.tipCheck = false; fwd(DK.BASE); if (S.sens.mark) post(ev('MARK_SEEN')); timer('FP', FIX.lengthRule ? inS(DK.ARM_MAX_IN + 2, DK.BASE) : DK.FOLLOW_MAX_S); },
+      on(e) {
+        if (e.type === 'TAPE_CHANGED') {
+          const m = e.param;
+          if (frontCount(m) === 0 && FIX.tipCheck && !V.tipCheck) {   // drift or arm tip? steer back for up to 1.5" first
+            V.tipCheck = true; (V.lastFrontSide === 'fl') ? motors(DK.BASE * DK.STEER_SLOW, DK.BASE) : motors(DK.BASE, DK.BASE * DK.STEER_SLOW); timer('FP', inS(1.5, DK.BASE)); return null; }
+          if (frontCount(m) === 0 && !FIX.tipCheck) { V.nextLineIsPerimeter = true; FP.go('DriveForward'); return null; }
+          if (frontCount(m) === 0) return null;
+          if (V.tipCheck) { V.tipCheck = false; timer('FP', DK.FOLLOW_MAX_S); }
+          if (FIX.cornerConfirm && isCornerEnd(m)) { V.creepFromEnd = true; FP.go('CornerCreep'); return null; }   // 1.5" spacing: end of the edge
+          if (FIX.crossTurn && frontCount(m) === 0 && ON(m, 'mc') && V.fieldSeen) { V.creepFromEnd = true; V.creepDist = D_MOUNT.fl[1]; FP.go('CornerCreep'); return null; }   // perimeter corner, not an arm tip
+          V.fieldSeen = ON(m, 'fc') && ON(m, F_FIELD());
+          if (ON(m, 'fl') && ON(m, 'fr')) { FP.go('DriveThroughCross'); return null; }
+          if (FIX.cornerConfirm && ON(m, 'fc')) { followStepCenter(m, DK.BASE); return null; }   // FC + one side is just off-center now
+          if (FIX.crossCheck && ON(m, 'fc') && (ON(m, 'fl') || ON(m, 'fr'))) { FP.go('Classify'); return null; }
+          if (ON(m, 'fc') && ON(m, F_FIELD()) && !ON(m, F_OUT())) { FP.go('CornerCreep'); return null; }
+          if (ON(m, 'fc') && ON(m, F_OUT()) && !ON(m, F_FIELD())) return ev('PERIMETER_FOUND');   // G-F1
+          if (FIX.tipCheck && ON(m, 'fc')) { const hi = DK.BASE, lo = DK.BASE * 0.88; V.fieldOnRight ? motors(hi, lo) : motors(lo, hi); return null; }
+          followStep(m, DK.BASE); return null;
+        }
+        if (mine(e, 'FP') && FIX.lengthRule && !V.tipCheck) return ev('PERIMETER_FOUND');   // followed longer than any cross arm
+        if (mine(e, 'FP') && V.tipCheck) { V.tipCheck = false; V.nextLineIsPerimeter = true; FP.go('DriveForward'); return null; }
+        if (mine(e, 'FP')) { FP.go('DriveForward'); return null; }
+        if (e.type === 'FRONT_BUMPED') { FP.go('BumpRecovery'); return null; }
+        return e;
+      } },
+    Classify: {   // FIX.crossCheck: FC + one side could be the cross seen at a slight angle; creep 1.5" and see if the other side lights
+      entry() { V.seenL = ON(S.mask, 'fl'); V.seenR = ON(S.mask, 'fr'); fwd(DK.CREEP); timer('FP', inS(1.5, DK.CREEP)); },
+      on(e) {
+        if (e.type === 'TAPE_CHANGED') { V.seenL ||= ON(e.param, 'fl'); V.seenR ||= ON(e.param, 'fr'); if (V.seenL && V.seenR) { FP.go('DriveThroughCross'); } return null; }
+        if (mine(e, 'FP')) { V.creepUsed = 1.5; FP.go('CornerCreep'); return null; }
+        return e;
+      } },
+    DriveThroughCross: {
+      entry() { fwd(FIX.crossTurn ? DK.CREEP : DK.BASE); },
+      on(e) {
+        // FIX.crossTurn: past the crossing arm, FC still on the line and both sides clear = this is the center cross
+        // (a perimeter corner would have run off the end). Turn 180° and go find the perimeter from here.
+        if (FIX.crossTurn && e.type === 'TAPE_CHANGED' && ON(e.param, 'fc') && !ON(e.param, 'fl') && !ON(e.param, 'fr')) { log('center cross: turn around, find perimeter'); FP.go('CrossTurn'); return null; }
+        if (FIX.crossTurn && e.type === 'TAPE_CHANGED' && frontCount(e.param) === 0 && ON(e.param, 'mc')) { V.creepFromEnd = true; V.creepDist = D_MOUNT.fl[1]; FP.go('CornerCreep'); return null; }   // all three lit, then the line ENDED: perimeter corner
+        if (e.type === 'TAPE_CHANGED' && frontCount(e.param) === 0) { V.nextLineIsPerimeter = true; FP.go('DriveForward'); return null; }
+        if (FIX.cornerConfirm && e.type === 'TAPE_CHANGED' && isCornerEnd(e.param)) { V.creepFromEnd = true; FP.go('CornerCreep'); return null; }   // it was a perimeter corner, not the cross
+        if (e.type === 'FRONT_BUMPED') { FP.go('BumpRecovery'); return null; }
+        return e;
+      } },
+    CrossTurn: {   // timed 180° in place, then drive straight back down the arm; the next line found is the perimeter
+      entry() { motors(-DK.PIVOT, DK.PIVOT); timer('FP', degS(180, DK.PIVOT)); },
+      on(e) { if (mine(e, 'FP')) { V.nextLineIsPerimeter = true; FP.go('DriveForward'); } return null; } },
+    CornerCreep: cornerCreepState(() => FP, 'FP', () => FP.go('TurnCorner'), () => FP.go('BumpRecovery'), () => FP.go('FollowLine')),
+    TurnCorner: alignState('FP', { start() { pivotToward(DK.PIVOT); }, cond: m => isAligned(m), safetyDeg: () => DK.CORNER_PIVOT_MAX,
+      done() { return ev('PERIMETER_FOUND'); }, safety() { FP.go('DriveForward'); return null; } }),
+  });
+
+  // Creep to a corner: MC off, then back TAPE_W/2 (§7.3) — shared by Find perimeter and Follow
+  // 1.5" sensor spacing: FC + field side can also be a small sideways shift on a straight edge. A real corner is
+  // the END of the edge, so FC (0.5" ahead of the row) runs off the tape during the creep. If it never does,
+  // it was a false alarm: go back to following (notCorner).
+  function cornerCreepState(Mf, tname, done, bumped, notCorner) {
+    let phase = '', fcOff = false;
+    return {
+      entry() {
+        fcOff = false;
+        if (V.creepFromEnd) { V.creepFromEnd = false; fcOff = true; phase = 'back'; fwd(DK.CREEP); timer(tname, inS((V.creepDist || D_MOUNT.fc[1]) - DK.TAPE_W / 2, DK.CREEP)); V.creepDist = 0; return; }   // FC left the corner's outer edge: 4" to the new edge's center
+        if (FIX.cornerTimed) { phase = 'back'; fwd(DK.CREEP); timer(tname, inS(Math.max(0.2, DK.FRONT_OFFSET + DK.TAPE_W / 2 - (V.creepUsed || 0)), DK.CREEP)); V.creepUsed = 0; return; }
+        phase = 'creep'; fwd(DK.CREEP); timer(tname, inS(DK.CORNER_CREEP_MAX_IN, DK.CREEP)); },
+      on(e) {
+        const backUp = () => { phase = 'back'; rev(DK.CREEP); timer(tname, inS(DK.TAPE_W / 2, DK.CREEP)); };
+        if (phase === 'creep' && ((e.type === 'TAPE_CHANGED' && !ON(e.param, 'mc')) || mine(e, tname))) { backUp(); return null; }
+        if (e.type === 'TAPE_CHANGED' && !ON(e.param, 'fc')) fcOff = true;
+        if (phase === 'back' && mine(e, tname)) { if (FIX.cornerConfirm && !fcOff && notCorner) notCorner(); else done(); return null; }
+        if (e.type === 'FRONT_BUMPED' && bumped) { bumped(); return null; }
+        return e;
+      } };
+  }
+
+  // =============== 9.2 Follow perimeter ===============
+  let lastSide = null;
+  const FW = machine('FW', 'OnLine', {
+    OnLine: {
+      entry() { V.allThree = false; onLineDrive(); if (FIX.entryChecks) followCheck(S.mask);
+        if (S.sens.mark && !V.markUsed) post(ev('MARK_SEEN'));   // (the MARK_SEEN handler checks the log and the ball budget)   // never skip a tower: on a strip already when following starts
+        if (V.towerPending) { V.towerPending = false; if (DK.USE_TRACKWIRE && S.sens.trackwire && !V.twSearched) post(ev('TRACKWIRE')); }   // also after a shot: towers close together share one track-wire zone
+        if (V.beaconPending) { V.beaconPending = false; if (S.sens.beacon) post(ev('BEACON_FOUND')); } },
+      on(e) {
+        if (e.type === 'TAPE_CHANGED') { followCheck(e.param); return null; }
+        return e;   // FRONT_BUMPED, BEACON_FOUND, TRACKWIRE pass up
+      } },
+    SteerLeft: steerState('fl'),
+    SteerRight: steerState('fr'),
+    CornerCreep: cornerCreepState(() => FW, 'FW', () => FW.go('TurnCorner'), null, () => FW.go('OnLine')),
+    TurnCorner: alignState('FW', { start() { pivotToward(DK.PIVOT); }, cond: m => isAligned(m), safetyDeg: () => DK.CORNER_PIVOT_MAX,
+      done() { cornerTurned(); FW.go('OnLine'); return null; }, safety() { FW.go('LostLine'); return null; } }),
+    LostLine: {
+      entry() { rev(DK.CREEP); timer('FW', inS(DK.LOST_MAX_IN, DK.CREEP)); S.stats.lostLine = (S.stats.lostLine || 0) + 1;
+        if (FIX.entryChecks && (frontCount(S.mask) > 0)) post(ev('INTERNAL_GO', 'Realign')); },
+      on(e) {
+        if ((e.type === 'TAPE_CHANGED' && e.param !== 0 && (!FIX.entryChecks || frontCount(e.param) > 0)) || e.type === 'INTERNAL_GO') { FW.go('Realign'); return null; }
+        if (mine(e, 'FW')) return ev('LINE_LOST');
+        return e;
+      } },
+    Realign: alignState('FW', {
+      start() { const towardLeft = lastSide ? lastSide === 'fl' : !V.fieldOnRight; towardLeft ? motors(-DK.PIVOT, DK.PIVOT) : motors(DK.PIVOT, -DK.PIVOT);
+        if (FIX.entryChecks && ON(S.mask, 'fc')) post(ev('TAPE_CHANGED', S.mask)); },
+      cond: m => ON(m, 'fc'), safetyDeg: () => DK.REALIGN_MAX_DEG, rising: false,
+      done() { FW.go('OnLine'); return null; }, safety() { return ev('LINE_LOST'); } }),
+  });
+  function followCheck(m) {
+    if (FIX.crossTurn) {
+      if (ON(m, 'fl') && ON(m, 'fc') && ON(m, 'fr')) V.allThree = true;
+      else if (V.allThree && ON(m, 'fc') && !ON(m, 'fl') && !ON(m, 'fr')) { V.allThree = false; post(ev('CROSS_SEEN')); return; }
+      else if (!ON(m, 'fc')) V.allThree = false;
+    }
+    if (isCornerEnd(m)) { V.creepFromEnd = true; FW.go('CornerCreep'); return; }
+    // Whole front row off the tape while MC is still on it: the row just ran off the end of the edge (all three sensors
+    // cross the outer edge within 0.5"). Pivot point is 4.5 - 1 = 3.5" ahead.
+    if (FIX.cornerConfirm && frontCount(m) === 0 && ON(m, 'mc')) { V.creepFromEnd = true; V.creepDist = D_MOUNT.fl[1]; FW.go('CornerCreep'); return; }
+    if (FIX.twoRow && frontCount(m) > 0) { lastSide = ON(m, 'fl') && !ON(m, 'fr') ? 'fl' : ON(m, 'fr') && !ON(m, 'fl') ? 'fr' : lastSide; if (FW.cur !== 'OnLine') FW.go('OnLine'); else trackStep(m, DK.BASE); return; }
+    if (!ON(m, 'fc') && ON(m, 'fl') && !ON(m, 'fr')) { lastSide = 'fl'; FW.go('SteerLeft'); return; }
+    if (!ON(m, 'fc') && ON(m, 'fr') && !ON(m, 'fl')) { lastSide = 'fr'; FW.go('SteerRight'); return; }
+    if (frontCount(m) === 0 && FIX.fieldBias) { const out = F_OUT(); lastSide = out; FW.go(out === 'fl' ? 'SteerLeft' : 'SteerRight'); return; }
+    if (frontCount(m) === 0) { if (FIX.holdSteer && lastSide) FW.go(lastSide === 'fl' ? 'SteerLeft' : 'SteerRight'); else FW.go('LostLine'); return; }
+    if (ON(m, 'fc')) onLineDrive();
+  }
+  function onLineDrive() {
+    const m = S.mask;
+    if (FIX.twoRow) return trackStep(m, DK.BASE);   // 1.5" spacing: FC + one side = slightly off center; nudge back toward that side's line center
+    if (ON(m, 'fc') && ON(m, 'fl') && !ON(m, 'fr')) return motors(DK.BASE * 0.8, DK.BASE);
+    if (ON(m, 'fc') && ON(m, 'fr') && !ON(m, 'fl')) return motors(DK.BASE, DK.BASE * 0.8);
+    if (!FIX.fieldBias) return fwd(DK.BASE);
+    const hi = DK.BASE, lo = DK.BASE * 0.88;            // curve gently toward the field
+    V.fieldOnRight ? motors(hi, lo) : motors(lo, hi);
+  }
+  function steerState(side) {
+    return {
+      entry() { side === 'fl' ? motors(DK.BASE * DK.STEER_SLOW, DK.BASE) : motors(DK.BASE, DK.BASE * DK.STEER_SLOW); timer('FW', DK.STEER_MAX_S); },
+      on(e) {
+        if (e.type === 'TAPE_CHANGED') {
+          const m = e.param;
+          if (ON(m, 'fc')) { FW.go('OnLine'); return null; }
+          if (ON(m, side)) lastSide = side;
+          const other = side === 'fl' ? 'fr' : 'fl';
+          if (ON(m, other)) { lastSide = other; FW.go(other === 'fl' ? 'SteerLeft' : 'SteerRight'); return null; }
+          if (FIX.cornerConfirm && frontCount(m) === 0 && ON(m, 'mc')) { V.creepFromEnd = true; V.creepDist = D_MOUNT.fl[1]; FW.go('CornerCreep'); return null; }
+          if (frontCount(m) === 0 && !FIX.holdSteer) { FW.go('LostLine'); return null; }
+          return null;
+        }
+        if (mine(e, 'FW')) { FW.go('LostLine'); return null; }
+        return e;
+      } };
+  }
+  function cornerTurned() { if (!isNaN(V.along) && V.along > 40) V.edgeLen = V.along + 4; V.edgeIndex = (V.edgeIndex + V.travelDir + 4) % 4; S.stats.corners++; V.along = 0;
+  }
+
+  // =============== 9.3 Attack robot (side shooter) ===============
+  // The beacon detector looks out the robot's field side. When it sees the dead robot: stop, pivot 180° in place
+  // (the shooter now looks where the beacon looked), fire ATTACK_SHOTS balls, pivot 180° back, keep following.
+  // Both 180° pivots end on the perimeter tape (FC lands after at least TURN_MIN_DEG), not on a timer.
+  let shotsLeft = 0, turnStart180 = 0;
+  const turn180 = (back) => alignState('AT', {
+    start() { turnStart180 = S.t; pivotToward(DK.PIVOT); }, cond: m => isAligned(m), safetyDeg: () => DK.TURN_MAX_DEG, settle: true,
+    gate: () => (S.t - turnStart180) >= degS(DK.TURN_MIN_DEG, DK.PIVOT),
+    done() { if (back) return ev('ATTACK_DONE', 1); AT.go('FireAtRobot'); return null; },
+    safety() { return ev('LINE_LOST'); } });
+  // timed 180° (used when FIX.timed180): the robot was parallel to the tape, so a measured 180° keeps the shooter abeam
+  function timedTurn(next) { return { entry() { pivotToward(DK.PIVOT); timer('AT', degS(180, DK.PIVOT)); },
+    on(e) { if (mine(e, 'AT')) { if (next) { AT.go(next); return null; } if (FIX.twoRow && frontCount(S.mask) === 0 && ON(S.mask, 'mc')) { AT.go('SquareUp'); return null; } return ev('ATTACK_DONE', 1); } return null; } }; }
+  let beamT = 0;
+  const AT = machine('AT', 'CenterBeacon', {
+    CenterBeacon: {   // the beacon just came into the side slit: creep on until it leaves, then back up half -> beacon dead abeam
+      entry() { shotsLeft = 0; beamT = S.t; FIX.twoRow ? trackStep(S.mask, DK.CREEP) : fwd(DK.CREEP); timer('AT', inS(DK.BEACON_CENTER_MAX_IN, DK.CREEP)); },
+      on(e) {
+        if (FIX.twoRow && e.type === 'TAPE_CHANGED' && beamT >= 0) { trackStep(e.param, DK.CREEP); return null; }   // stay straight while creeping
+        if (e.type === 'MARK_SEEN' && !V.markUsed && shooterOut() && !alreadyShot() && S.balls > DK.ATTACK_SHOTS) { V.shotTowers.push({ edge: V.edgeIndex, along: canonAlong() }); fire(); V.markUsed = true; return null; }   // never skip: a banner passed while centering the beacon gets a ball right away
+        if (e.type === 'BEACON_LOST' && beamT >= 0) { const half = (S.t - beamT) / 2; beamT = -1; rev(DK.CREEP); timer('AT', half); return null; }
+        if (mine(e, 'AT')) { AT.go('TurnToRobot'); return null; }
+        return null;
+      } },
+    TurnToRobot: FIX.timed180 ? timedTurn('FireAtRobot') : turn180(false),
+    FireAtRobot: {   // v12: fire, then (if shots are left) drive 0.5 s along the tape and fire again — 3 shots total
+      entry() { if (shotsLeft <= 0) shotsLeft = DK.ATTACK_SHOTS; fire(); shotsLeft--; timer('AT', DK.SHOT_SETTLE_S); },
+      on(e) { if (mine(e, 'AT')) AT.go(shotsLeft > 0 ? 'MoveForRobot' : 'TurnBack'); return null; } },
+    MoveForRobot: {
+      entry() { FIX.twoRow ? trackStep(S.mask, DK.CREEP) : fwd(DK.CREEP); timer('AT', DK.ATTACK_MOVE_S); },
+      on(e) { if (e.type === 'TAPE_CHANGED' && FIX.twoRow) { trackStep(e.param, DK.CREEP); return null; } if (mine(e, 'AT')) AT.go('FireAtRobot'); return null; } },
+    TurnBack: FIX.timed180 ? timedTurn(null) : turn180(true),
+    SquareUp: {   // twoRow: after the attack the robot isn't on the line (e.g. the dead robot blocked the turn): pivot until FC and BC are both on it
+      entry() { const ef = rowPos(ON(S.mask, 'fl'), ON(S.mask, 'fc'), ON(S.mask, 'fr'), NaN);
+        (isNaN(ef) ? !V.fieldOnRight : ef < 0) ? motors(-DK.PIVOT, DK.PIVOT) : motors(DK.PIVOT, -DK.PIVOT); timer('AT', degS(150, DK.PIVOT)); },
+      on(e) { if (e.type === 'TAPE_CHANGED' && ON(e.param, 'fc') && ON(e.param, 'bc')) return ev('ATTACK_DONE', 1); if (mine(e, 'AT')) return ev('LINE_LOST'); return null; } },
+  });
+
+  // =============== 9.4 Find tower (side shooter) ===============
+  // Track wire says a tower is near. Creep along the tape until the side tower-tape sensor sees the tape mark
+  // at the marked hole: the shooter is then lined up with that hole. No turning toward the tower.
+  const FT = machine('FT', 'CreepToMark', {
+    CreepToMark: {
+      entry() { V.twSearched = true; if (FIX.twoRow) trackStep(S.mask, DK.CREEP); else { followStep(S.mask, DK.CREEP); if (ON(S.mask, 'fc')) fwd(DK.CREEP); } timer('FT', inS(DK.TOWER_SEARCH_IN, DK.CREEP)); if (S.sens.mark && !V.markUsed) post(ev('MARK_SEEN')); },
+      on(e) {
+        if (e.type === 'MARK_SEEN') return ev('FACING_TOWER');
+        if (e.type === 'TAPE_CHANGED') {
+          const m = e.param;
+          if (FIX.towerCorner && (isCornerEnd(m) || (FIX.cornerConfirm && frontCount(m) === 0 && ON(m, 'mc')))) return ev('FIND_TOWER_FAILED');   // reached the corner
+          if (FIX.twoRow) trackStep(m, DK.CREEP); else if (ON(m, 'fc')) followStepCenter(m, DK.CREEP); else followStep(m, DK.CREEP);   // same centering as Follow, at creep speed
+          return null; }
+        if (mine(e, 'FT')) return ev('FIND_TOWER_FAILED');
+        return null;
+      } },
+  });
+
+  // =============== 9.5 Shoot (side shooter) ===============
+  const SH = machine('SH', 'Fire', {
+    Fire: { entry() { fire(); timer('SH', DK.FIRE_PULSE_S); }, on(e) { if (mine(e, 'SH')) SH.go('WaitShot'); return null; } },
+    WaitShot: { entry() { timer('SH', DK.SHOT_SETTLE_S); }, on(e) { if (mine(e, 'SH')) return ev('BALL_SHOT'); return null; } },
+  });
+
+  // =============== 9.6 Turn-around (Bumped v4) ===============
+  let turnStart = 0;
+  const BU = machine('BU', 'BackOff', {
+    BackOff: {
+      entry() { revFollowStep(S.mask, DK.CREEP); timer('BU', inS(DK.TURN_BACKOFF_IN, DK.CREEP)); },
+      on(e) {
+        if (e.type === 'TAPE_CHANGED') { if (backReachedCorner(e.param)) { if (FIX.reverseOnBump && top === 'Bumped') return switchDirection(); BU.go('TurnAround'); } else revFollowStep(e.param, DK.CREEP); return null; }
+        if (e.type === 'REAR_BUMPED' || mine(e, 'BU')) { if (FIX.reverseOnBump && top === 'Bumped') return switchDirection(); BU.go('TurnAround'); return null; }
+        return null;
+      } },
+    TurnAround: alignState('BU', {
+      start() { turnStart = S.t; pivotToward(DK.PIVOT); }, cond: m => isAligned(m), safetyDeg: () => DK.TURN_MAX_DEG, settle: true,
+      gate: () => (S.t - turnStart) >= degS(DK.TURN_MIN_DEG, DK.PIVOT),
+      done() { V.fieldOnRight = !V.fieldOnRight; V.travelDir = -V.travelDir; V.along = NaN; S.stats.turnarounds++; return ev('TURNED_AROUND'); },
+      safety() { return ev('LINE_LOST'); } }),
+  });
+
+  function switchDirection() {   // v14: no turn; just start driving the other way (forward <-> backward)
+    stop(); V.reverse = !V.reverse; V.fieldOnRight = !V.fieldOnRight; V.travelDir = -V.travelDir; V.along = NaN; lastEf = lastEb = 0;
+    S.sens = readSensors(); S.mask = S.sens.mask; S.stats.turnarounds++;
+    log(V.reverse ? 'bumped: now driving BACKWARD (shooter still faces out)' : 'bumped: now driving forward again');
+    return ev('TURNED_AROUND');
+  }
+
+  // =============== 8. Top-level HSM ===============
+  const SUB = { FindPerimeter: FP, Reorient: BU, FollowPerimeter: FW, AttackRobot: AT, FindTower: FT, Shoot: SH, Bumped: BU };
+  // The shooter and track-wire coil are on the robot's RIGHT, the beacon detector on its LEFT. So the robot must drive
+  // counterclockwise (field on its left): shooter faces the towers, beacon faces the field.
+  const shooterOut = () => V.reverse ? V.fieldOnRight : !V.fieldOnRight;   // shooter is on the physical right
+  let top = null;
+  const topGo = next => {
+    if (top && SUB[top]) SUB[top].exit();
+    log(`${top || 'start'} ⇒ ${next}`); top = next;
+    if (SUB[next]) { SUB[next].init(); topEntry(next); } else if (next === 'Done') { stop(); S.status = 'done'; S.reason = 'HSM reached Done'; log('HSM reached Done (robot hit + 2 towers shot)', 'good'); }
+  };
+  function topEntry(st) {
+    if (st === 'FindPerimeter') { if (V.reverse) { V.reverse = false; S.sens = readSensors(); S.mask = S.sens.mask; } S.stats.findPerim++; V.nextLineIsPerimeter = false; V.firstSide = null;
+      if (V.crossTurnPending) { V.crossTurnPending = false; FP.go('CrossTurn'); }
+      else if (FIX.fpFromTape && ON(S.mask, 'mc')) FP.go('AlignToLine'); }
+    if (st === 'FollowPerimeter') {
+      if (S.balls === 0) { topGo('Done'); return; }   // v12: keep circling (a missed tower can still be shot) until the balls run out
+      if (!V.attackDone && shooterOut() && S.sens.beacon) { S.stats.attacks++; topGo('AttackRobot'); return; }   // G-H3
+    }
+  }
+  // Tower log (v7): a tower is identified by its edge AND how far along that edge it is (inches driven since the last
+  // corner). Edge alone dismissed a second tower on the same edge. Distance is unknown until the first corner after
+  // finding the perimeter or after a turn-around; then it falls back to edge-only.
+  // Distance along the edge, always measured from the same corner (the one the robot starts each edge from when it
+  // drives its original direction). Driving the other way, it's edge length minus the distance driven.
+  function canonAlong() {
+    if (isNaN(V.along)) return NaN;
+    if (V.travelDir === V.startTravelDir) return V.along;
+    return DK.EDGE_LEN_IN - V.along;   // tape centerline edge: 96" field − 2 × (6" + 1") = 82"
+  }
+  function alreadyShot() {
+    if (DK.SHOOT_EVERY_TOWER) return false;
+    const a = canonAlong();
+    if (DK.BALLS <= 6) return V.shotTowers.some(t => t.edge === V.edgeIndex && !isNaN(t.along) && !isNaN(a) && Math.abs(t.along - a) < DK.TOWER_SAME_IN);   // v12: only skip a tower we KNOW we shot
+    if (!FIX.towerAlong) return V.edgeIndex === V.lastShotTower;
+    return V.shotTowers.some(t => t.edge === V.edgeIndex && (isNaN(t.along) || isNaN(V.along) || Math.abs(t.along - V.along) < DK.TOWER_SAME_IN));
+  }
+  function towerFound() {
+    S.stats.towerSeen++;
+    if (shooterOut() && (DK.SHOOT_EVERY_TOWER || V.towersShot < DK.TOWERS_TO_SHOOT) && !alreadyShot()) { V.currentTowerEdge = V.edgeIndex; topGo('FindTower'); }
+    else S.stats.towerDismissed++;
+  }
+  function runTop(e) {
+    if (!SUB[top]) return;
+    let out = SUB[top].run(e);
+    if (!out) return;
+    switch (top) {
+      case 'FindPerimeter':
+        if (out.type === 'MARK_SEEN' && FP.cur === 'FollowLine') out = ev('PERIMETER_FOUND');   // tower strips are only beside the perimeter
+        if (out.type === 'PERIMETER_FOUND') {
+          if (S.stats.perimT === null) S.stats.perimT = S.t;
+          V.edgeIndex = 0; V.travelDir = V.fieldOnRight ? 1 : -1; V.startTravelDir = V.travelDir; V.edgeLen = NaN; if (S.stats.findPerim > 1) { V.lastShotTower = -1; V.shotTowers = []; } V.along = NaN;
+          if (V.fieldOnRight) { log('locked on clockwise: turn around so the shooter faces out'); topGo('Reorient'); } else topGo('FollowPerimeter');
+        }
+        break;
+      case 'Reorient':
+      case 'Bumped':
+        if (out.type === 'TURNED_AROUND') topGo('FollowPerimeter');
+        else if (out.type === 'LINE_LOST') { S.stats.lineLost++; topGo('FindPerimeter'); }
+        break;
+      case 'FollowPerimeter':
+        if (out.type === 'CROSS_SEEN') { log('center cross while following: turn 180°, find perimeter'); V.crossTurnPending = true; topGo('FindPerimeter'); break; }
+        if (out.type === 'MARK_SEEN' && shooterOut() && !V.markUsed && !alreadyShot() && S.balls > (V.attackDone ? 0 : DK.ATTACK_SHOTS)) { V.currentTowerEdge = V.edgeIndex; topGo('Shoot'); }   // passing a marked-hole strip: shoot it
+        else if (out.type === 'TRACKWIRE' && !DK.USE_TRACKWIRE) { /* v11: the HSM doesn't use the track wire */ }
+        else if (out.type === 'TRACKWIRE' && !/^(OnLine|Steer)/.test(FW.cur)) V.towerPending = true;   // mid-corner: wait until straight
+        else if (out.type === 'TRACKWIRE') towerFound();
+        else if (out.type === 'BEACON_FOUND' && !/^(OnLine|Steer)/.test(FW.cur)) V.beaconPending = true;   // mid-corner: wait until straight on the tape
+        else if (out.type === 'BEACON_FOUND') {
+          if (DK.USE_TRACKWIRE && shooterOut() && (DK.SHOOT_EVERY_TOWER || V.towersShot < DK.TOWERS_TO_SHOOT) && S.sens.trackwire && !V.twSearched && !alreadyShot()) { V.currentTowerEdge = V.edgeIndex; topGo('FindTower'); }  // G-H4: tower wins
+          else if (!V.attackDone && shooterOut()) { S.stats.attacks++; topGo('AttackRobot'); }
+        }
+        else if (out.type === 'FRONT_BUMPED') topGo('Bumped');
+        else if (out.type === 'LINE_LOST') { S.stats.lineLost++; topGo('FindPerimeter'); }
+        break;
+      case 'AttackRobot':
+        if (out.type === 'ATTACK_DONE') { V.attackDone = true; topGo('FollowPerimeter'); }
+        else if (out.type === 'LINE_LOST') { S.stats.lineLost++; topGo('FindPerimeter'); }
+        break;
+      case 'FindTower':
+        if (out.type === 'FACING_TOWER') topGo('Shoot');
+        else if (out.type === 'FIND_TOWER_FAILED') { topGo('FollowPerimeter'); if (top === 'FollowPerimeter') followCheck(S.mask); }   // let Follow's corner rules take the corner
+        break;
+      case 'Shoot':
+        if (out.type === 'BALL_SHOT') { V.markUsed = true; V.twSearched = false; V.towerPending = true; V.lastShotTower = V.currentTowerEdge; V.shotTowers.push({ edge: V.currentTowerEdge, along: canonAlong() }); V.towersShot++; topGo('FollowPerimeter'); }
+        break;
+    }
+  }
+
+  // ---------- world interface (same physics and rules as the sim's step()) ----------
+  function post(e) { S.q.push(e); }
+  function fire() {
+    if (S.balls <= 0) return; S.balls--; S.stats.shots++;
+    const [ox, oy] = toWorld(r, ...D_LAUNCHER), dx = Math.sin(r.th), dy = -Math.cos(r.th);   // shooter fires out the right side
+    const tOpp = rayRect(ox, oy, dx, dy, W.opp.poly);
+    let best = tOpp < 120 ? tOpp : Infinity, kind = best < Infinity ? 'opp' : null, tw = null, hole = -1, ok = false;
+    for (const T of W.towers) {
+      const den = dx * T.n[0] + dy * T.n[1]; if (den < 0.6) continue;
+      const tt = ((T.cx - ox) * T.n[0] + (T.cy - oy) * T.n[1]) / den; if (tt <= 0 || tt >= best) continue;
+      const px = ox + dx * tt, py = oy + dy * tt, u = (px - T.cx) * T.u[0] + (py - T.cy) * T.u[1];
+      if (Math.abs(u) > 6) continue;
+      best = tt; kind = 'tower'; tw = T; hole = [-4, 0, 4].findIndex(h => Math.abs(u - h) <= 0.96); S._u = u;
+    }
+    let msg = 'miss';
+    if (kind === 'opp') { S.oppHits++; ok = true; msg = `HIT opponent (${S.oppHits})`; }
+    else if (kind === 'tower') {
+      if (hole < 0) msg = 'hit tower face (missed holes)';
+      else if (hole === tw.marked) { ok = true; if (!tw.scored) { tw.scored = true; S.towersScored++; } msg = `MARKED hole ✓ (towers scored: ${S.towersScored})`; }
+      else msg = `through unmarked hole ${hole + 1}`;
+    }
+    const end = best < Infinity ? [ox + dx * best, oy + dy * best] : [ox + dx * 60, oy + dy * 60];
+    S.shots.push({ from: [ox, oy], to: end, ok, t: S.t });
+    log(`fire #${DK.BALLS - S.balls}: ${msg}`, ok ? 'good' : 'bad');
+  }
+  function readSensors() {
+    const s = {}; let m = 0;
+    for (const k of Object.keys(D_MOUNT)) { s[k] = onTape(...toWorld(r, ...D_MOUNT[k])); if (s[k]) m |= 1 << BIT[k]; }
+    s.raw = m; s.mask = V.reverse ? mirrorMask(m) : m;
+    const [cx, cy] = toWorld(r, ...D_COIL);
+    s.trackwire = W.towers.some(T => segDist(cx, cy, ...T.wire[0], ...T.wire[1]) <= P.twRange);
+    const [bx, by] = toWorld(r, ...D_BEACON), lx = -Math.sin(r.th), ly = Math.cos(r.th);          // beacon looks out the left (field) side
+    const vx = W.opp.x - bx, vy = W.opp.y - by, d = Math.hypot(vx, vy);
+    s.beacon = d > 1 && Math.acos(Math.max(-1, Math.min(1, (vx * lx + vy * ly) / d))) <= P.beaconHalf * Math.PI / 180;
+    s.mark = markSeen();
+    const probe = side => polysOverlap(corners(...toWorld(r, 0, side * (D_HALF + 0.2)), r.th, D_HALF, 0.25), W.opp.poly);
+    s.bumpf = probe(1) || S.blockedDir > 0; s.bumpb = probe(-1) || S.blockedDir < 0;
+    if (V.reverse) [s.bumpf, s.bumpb] = [s.bumpb, s.bumpf];   // virtual front bumper = physical back bumper
+    return s;
+  }
+  // Tower-tape sensor: a TCRT5000 looking SIDEWAYS out the right side, mounted vertically in line with the shooter
+  // (directly below it). It sees the tower's vertical banner, which hangs below the marked hole, so when it sees the
+  // banner the shooter is lined up with that hole.
+  function markSeen() {
+    const [ox, oy] = toWorld(r, ...D_MARK), dx = Math.sin(r.th), dy = -Math.cos(r.th);
+    for (const T of W.towers) {
+      const den = dx * T.n[0] + dy * T.n[1]; if (den < 0.6) continue;
+      const tt = ((T.cx - ox) * T.n[0] + (T.cy - oy) * T.n[1]) / den; if (tt <= 0 || tt > MARK_RANGE) continue;
+      const u = (ox + dx * tt - T.cx) * T.u[0] + (oy + dy * tt - T.cy) * T.u[1];
+      if (Math.abs(u - [-4, 0, 4][T.marked]) <= MARK_W / 2) return true;
+    }
+    return false;
+  }
+  function edges(prev, s) {
+    if (s.mask !== prev.mask) {
+      if (ON(s.mask, 'fl') && !ON(s.mask, 'fr')) V.lastFrontSide = 'fl'; else if (ON(s.mask, 'fr') && !ON(s.mask, 'fl')) V.lastFrontSide = 'fr';
+      if (!V.firstSide && frontCount(s.mask) > 0) V.firstSide = ON(s.mask, 'fr') && !ON(s.mask, 'fl') ? 'fr' : 'fl';
+      post(ev('TAPE_CHANGED', s.mask));
+    }
+    if (s.bumpf && !prev.bumpf) post(ev('FRONT_BUMPED'));
+    if (s.bumpb && !prev.bumpb) post(ev('REAR_BUMPED'));
+    if (s.beacon && !prev.beacon) post(ev('BEACON_FOUND'));
+    if (!s.beacon && prev.beacon) post(ev('BEACON_LOST'));
+    if (s.trackwire && !prev.trackwire) post(ev('TRACKWIRE'));
+    if (!s.trackwire) V.twSearched = false;
+    if (!s.mark) V.markUsed = false;          // off the strip we just shot: the next strip is a new tower   // left this tower's track-wire zone: the next trip is a new tower
+    if (s.mark && !prev.mark) post(ev('MARK_SEEN'));
+  }
+
+  const DISP = { CornerCreep: 'CornerCreep (FP)', TurnCorner: 'TurnCorner (FP)' };
+  S.path = () => { if (!SUB[top]) return [top]; const c = SUB[top].cur; return [top, top === 'FindPerimeter' && DISP[c] ? DISP[c] : c]; };
+  S.step = dt => {
+    if (S.status !== 'running') return;
+    for (const [name, at] of Object.entries(S.timers)) if (S.t >= at) { delete S.timers[name]; post(ev('ES_TIMEOUT', name)); }
+    const [L, R] = S.cmd, vl = L * P.speed * W.gL, vr = R * P.speed * W.gR, v = (vl + vr) / 2, w = (vr - vl) / b;
+    const nx = r.x + v * Math.cos(r.th) * dt, ny = r.y + v * Math.sin(r.th) * dt, nth = r.th + w * dt;
+    if (!polysOverlap(corners(nx, ny, nth, D_HALF, D_HALF), W.opp.poly)) { r.x = nx; r.y = ny; r.th = nth; S.contactT = 0; S.blockedDir = 0; }
+    else { S.contactT += dt; S.blockedDir = Math.abs(v) > 0.5 ? Math.sign(v) : 0; }
+    S.t += dt;
+    if (top === 'FollowPerimeter' || top === 'FindTower' || (top === 'AttackRobot' && /CenterBeacon/.test(AT.cur))) V.along += (V.reverse ? -1 : 1) * (S.cmd[0] + S.cmd[1]) / 2 * P.speed * dt;   // odometry from commanded speed
+    if (!S.trail.length || Math.hypot(r.x - S.trail.at(-1)[0], r.y - S.trail.at(-1)[1]) > 1) S.trail.push([r.x, r.y]);
+    const prev = S.sens; S.sens = readSensors(); S.mask = S.sens.mask; edges(prev, S.sens);
+    let guard = 0;
+    while (S.q.length && guard++ < 50) runTop(S.q.shift());
+    S.q.length = 0;
+    S.leaf = S.path().at(-1);
+    if (S.status !== 'running') return;
+    if (Math.abs(r.x) > FIELD.tapeOut || Math.abs(r.y) > FIELD.tapeOut) { S.status = 'dq'; S.reason = 'DQ: more than half the robot past the border'; log(S.reason, 'bad'); }
+    else if (S.contactT > 5) { S.status = 'dq'; S.reason = 'DQ: stayed in contact > 5 s'; log(S.reason, 'bad'); }
+    else if (S.towersScored >= 2 && S.oppHits >= 2) { S.status = 'win'; S.reason = `Min spec done in ${S.t.toFixed(1)} s`; log(S.reason, 'good'); }
+    else if (S.t >= P.roundTime) { S.status = 'timeout'; S.reason = 'Out of time (2:00)'; log(S.reason, 'bad'); }
+  };
+  S.V = V;
+  S.sens = readSensors(); S.mask = S.sens.mask;
+  topGo('FindPerimeter');
+  S.leaf = S.path().at(-1);
+  return S;
+}
+const DESIGN_FIXES = { reverseOnBump: true, crossTurn: true, twoRow: true, towerAlong: true, tipCheck: true, cornerConfirm: true, alignSettle: true, timed180: true, cornerTimed: true, risingFC: true, centerAlign: true, holdSteer: true, entryChecks: true, shortTurn: true, fpFromTape: true, towerCorner: true, crossCheck: true, fieldBias: false, centerOverTape: true, lengthRule: true };
+
+// Diagram of the design HSM (drawn by the Live diagram panel; the robot itself runs createDesignSim above)
+const DESIGN_DIAGRAM = `title: design.md HSM
+start: FindPerimeter
+accept: Done
+
+FindPerimeter {
+  start: DriveForward
+  DriveForward -> CenterOverTape : front tape
+  DriveForward -> BumpRecovery : bump, search timer
+  BumpRecovery -> DriveForward : turn done
+  CenterOverTape -> AlignToLine : MC on (pivot left)
+  AlignToLine -> FollowLine : FC+MC (flag clear)
+  AlignToLine -> DriveForward : 200 deg safety
+  FollowLine -> DriveThroughCross : FL+FR
+  FollowLine -> Classify : FC+side (fix)
+  Classify -> DriveThroughCross : other side
+  Classify -> CornerCreep (FP) : 1.5 in
+  FollowLine -> CornerCreep (FP) : FC+field side
+  FollowLine -> DriveForward : arm tip (set flag)
+  DriveThroughCross -> CrossTurn : FC on, sides clear (cross)
+  CrossTurn -> DriveForward : 180 deg (set flag)
+  DriveThroughCross -> CornerCreep (FP) : line ended (corner)
+  CornerCreep (FP) -> TurnCorner (FP) : timer
+}
+FollowPerimeter {
+  start: OnLine
+  OnLine -> SteerLeft : FL
+  OnLine -> SteerRight : FR
+  SteerLeft -> OnLine : FC
+  SteerRight -> OnLine : FC
+  OnLine -> CornerCreep : FC+field side
+  CornerCreep -> TurnCorner : timer
+  TurnCorner -> OnLine : FC+MC
+  OnLine -> LostLine : front off
+  LostLine -> Realign : tape
+  Realign -> OnLine : FC
+}
+Bumped {
+  start: BackOff
+  BackOff -> TurnAround : 3 in, rear bump
+}
+AttackRobot {
+  start: CenterBeacon
+  CenterBeacon -> TurnToRobot : beacon abeam
+  TurnToRobot -> FireAtRobot : 180 deg
+  FireAtRobot -> MoveForRobot : shot 1, 2
+  MoveForRobot -> FireAtRobot : 0.5 s
+  FireAtRobot -> TurnBack : shot 3
+}
+Shoot {
+  start: Fire
+  Fire -> WaitShot : pulse
+}
+FindPerimeter -> FollowPerimeter : PERIMETER_FOUND (CCW)
+FindPerimeter -> Reorient : PERIMETER_FOUND (CW)
+Reorient -> FollowPerimeter : TURNED_AROUND
+FollowPerimeter -> Bumped : FRONT_BUMPED
+Bumped -> FollowPerimeter : TURNED_AROUND
+FollowPerimeter -> AttackRobot : BEACON_FOUND (side)
+AttackRobot -> FollowPerimeter : ATTACK_DONE
+Shoot -> FollowPerimeter : BALL_SHOT
+AttackRobot -> FollowPerimeter : ATTACK_DONE
+FollowPerimeter -> FindPerimeter : LINE_LOST, CROSS_SEEN
+FollowPerimeter -> Done : hit + 2 towers
+`;
+
+const DEFAULT_PROGRAM = `title: Sluggy Potter - Min Spec
+start: FindBorder
+accept: Done
+
+# ===== top level =====
+FindBorder -> Towers : CHECK_TIMEOUT
+FindBorder -> Detour : BUMP
+Towers -> Detour : BUMP
+Towers -> FindOpponent : ALL_TOWERS_DONE
+FindOpponent -> Done : SHOTS_DONE
+
+# ===== 1. find the border (any start) =====
+FindBorder {
+  start: DriveForward
+  states: Align
+  DriveForward -> Align : FRONT_TAPE
+  Align -> CheckFollow : FRI_OFF, TURN_DONE   # right edge found (or gave up turning)
+  CheckFollow -> Align : FL_ON                # corner (or cross center)
+  CheckFollow -> DriveForward : FOLLOW_LOST   # tape ended = cross arm
+}
+@DriveForward: drive 1 1
+@Align:        drive -1 1; timer TURN_DONE 150deg   # pivot left until FR inner leaves tape
+@CheckFollow:  follow; timer CHECK_TIMEOUT 40in; if fl FL_ON
+
+# ===== 2. towers: follow border CCW, shoot all 3 holes =====
+Towers {
+  start: FollowBorder
+  FollowBorder -> CornerTurn : FL_ON
+  CornerTurn -> FollowBorder : FRI_OFF, TURN_DONE
+  FollowBorder -> ToHole : TRACKWIRE
+  ToHole -> Shoot : MOVE_DONE
+  Shoot -> NextHole : MORE_HOLES
+  NextHole -> Shoot : MOVE_DONE
+  Shoot -> TowerDone : HOLES_DONE
+  TowerDone -> FollowBorder : MORE_TOWERS
+}
+@FollowBorder: follow; if fl FL_ON
+@CornerTurn:   drive -1 1; timer TURN_DONE 150deg
+@ToHole:       follow; timer MOVE_DONE 7.5in    # track wire trip -> hole 1
+@NextHole:     follow; timer MOVE_DONE 4in      # hole spacing
+@Shoot:        stop; fire; count holes 3 HOLES_DONE MORE_HOLES
+@TowerDone:    count towers 2 ALL_TOWERS_DONE MORE_TOWERS
+
+# ===== 3. opponent: find beacon, bump, back off, shoot =====
+FindOpponent {
+  start: Spin
+  Spin -> FaceOpp : BEACON
+  FaceOpp -> Charge : TURN_DONE
+  Charge -> BackOff : BUMP_FRONT
+  Charge -> TapeCheck : FRONT_TAPE
+  TapeCheck -> Charge : CROSS_TAPE
+  TapeCheck -> Retreat : BORDER_TAPE
+  Retreat -> Spin : MOVE_DONE, BL_ON
+  BackOff -> FaceSide : MOVE_DONE
+  FaceSide -> Aim : TURN_DONE
+  Aim -> Fire : BEACON, AIMED
+  Fire -> Aim : MORE_SHOTS
+}
+@Spin:      drive -0.3 0.3
+@FaceOpp:   reset tapes; drive 1 -1; timer TURN_DONE 90deg
+@Charge:    drive 1 1
+@TapeCheck: count tapes 3 BORDER_TAPE CROSS_TAPE   # cross can be crossed at most twice
+@Retreat:   drive -1 -1; timer MOVE_DONE 4in; if bl BL_ON
+@BackOff:   drive -1 -1; timer MOVE_DONE 5in   # we just drove in, so backing out is safe
+@FaceSide:  drive -1 1; timer TURN_DONE 90deg
+@Aim:       drive -0.3 0.3; if beacon AIMED
+@Fire:      stop; fire; count shots 3 SHOTS_DONE MORE_SHOTS
+@Done:      stop; done
+
+# ===== bump while searching / following: go around on the inside =====
+Detour {
+  start: Reverse
+  Reverse -> TurnIn : MOVE_DONE, BL_ON   # never back over tape (BR rides the tape while following)
+  TurnIn -> Sidestep : TURN_DONE
+  Sidestep -> TurnBack : MOVE_DONE
+  TurnBack -> PassBy : TURN_DONE
+  PassBy -> TurnToBorder : MOVE_DONE
+  TurnToBorder -> FindBorder : TURN_DONE
+}
+Detour -> Detour : BUMP
+Detour -> Align : FRONT_TAPE
+@Reverse:      drive -1 -1; timer MOVE_DONE 6in; if bl BL_ON
+@TurnIn:       drive -1 1; timer TURN_DONE 90deg
+@Sidestep:     drive 1 1; timer MOVE_DONE 20in
+@TurnBack:     drive 1 -1; timer TURN_DONE 90deg
+@PassBy:       drive 1 1; timer MOVE_DONE 30in
+@TurnToBorder: drive 1 -1; timer TURN_DONE 90deg
+`;
+// ================= UI =================
+const $ = s => document.querySelector(s);
+const STORE = 'sluggy-sim:v1';
+const PARAM_LABELS = {
+  speed: 'Drive speed (in/s)', pivotRate: 'Pivot rate (deg/s)', wheelMismatch: 'Wheel mismatch (± %)',
+  twRange: 'Track wire range (in)', beaconHalf: 'Beacon slit half-width (deg)', lostTime: 'FOLLOW_LOST time (s)',
+  roundTime: 'Round time (s)', startRadius: 'Start within (in of center)', oppMax: 'Dead bot within (± in)',
+};
+const store = (() => { try { return JSON.parse(localStorage.getItem(STORE)) || {}; } catch { return {}; } })();
+const save = () => { try { localStorage.setItem(STORE, JSON.stringify({ src: srcEl.value, params, mode })); } catch {} };
+
+const srcEl = $('#src'), canvas = $('#field'), g = canvas.getContext('2d');
+srcEl.value = store.src || DEFAULT_PROGRAM;
+const params = { ...DEFAULT_PARAMS, ...(store.params || {}) };
+let seed = 1 + Math.floor(Math.random() * 99999);
+let program = null, sim = null, playing = false, lastFrame = 0, lastLeaf = null, logShown = 0;
+let mode = ['text', 'design', 'fixed'].includes(store.mode) ? store.mode : 'fixed';   // which robot / controller runs
+const FIX_NOTES = ['shooter always faces the towers: after a bump the robot does NOT turn around — it drives BACKWARD the other way round the loop (back row leads; corners, tower shots and attacks all still work); the next bump switches it back to forward', '6 balls total: 3 reserved for the dead robot until the attack is done, the rest for towers; a tower already shot (same edge, within 10 in) is not shot again', 'attack: 3 shots, driving 0.5 s along the tape between shots', 'towers: the HSM does not use the track wire; the side tower-tape sensor (directly below the shooter) seeing the vertical banner is the only tower trigger: stop and fire', 'a banner passed while centering on the beacon gets a ball right away', 'center cross: all three front sensors light, then FC stays on with both sides clear (the line continues — a perimeter corner would end) → turn 180°, then Find perimeter drives back out the arm; the next line is the perimeter. Works in Find perimeter and while following', 'straight lines: steer with BOTH rows — front and back each say where the line is (−1.5…+1.5 in); their average is the sideways offset, their difference is the angle; the robot steers to zero both, so it straightens itself instead of riding toward the edge (also while creeping to a tower or the beacon)', 'corner = FC runs off the end with both sides still on, or the whole front row off with MC on; FC off with ONE side on is drift, not a corner', 'never skip a tower: every tower banner the robot passes gets a shot — while following, after a shot (towers close together share one track-wire zone, so it searches again), right after an attack or Find perimeter (if it\'s already beside a banner), and a banner seen while finding the perimeter means that line is the perimeter. No "already shot" log, no 2-tower limit, no early Done', 'tower creep uses the same centering as Follow and stops at a corner (either corner rule)', '1.5" sensor spacing: FC + a side sensor just means slightly off-center (nudge back); a corner is the front row running off the END of the edge (all front off, or FC off with only the field side on), then creep 3.5–4" and pivot', 'a suspected corner that never runs off the edge is a false alarm: keep following','attack 180° turns are timed (the robot is parallel to the tape, so a measured 180° keeps the shooter on the beacon line)', 'beacon or track wire seen mid-corner waits until the robot is straight on the tape again', 'turns end when FC turns ON, then pivot 13° more to center',
+  'all-front-off while following keeps steering instead of "line lost"', 'follow curves gently toward the field (rides the inner tape edge)',
+  'FC + one side: creep 1.5 in to check for the cross', 'align pivots the short way', 'Find perimeter on tape: align first',
+  'creep 1 in past "MC on" to the tape center', 'a line longer than a cross arm = perimeter', '(track wire no longer used)'].filter(n => !n.startsWith('align pivots the short way'));
+const makeSim = sd => mode === 'text' ? createSim(program, params, sd) : createDesignSim(params, sd, mode === 'fixed' ? DESIGN_FIXES : {});
+function applyMode() {
+  const design = mode !== 'text';
+  $('#robotSel').value = mode;
+  srcEl.hidden = design; $('#designSrc').hidden = !design;
+  $('#resetProg').hidden = $('#copyProg').hidden = design;
+  $('#fsmTitle').textContent = design ? 'design.md HSM' : 'FSM';
+  $('#fsmHint').textContent = design ? 'read-only · runs the code version of design.md §8–§9' : 'edit → applies on Restart';
+  if (design) $('#designSrc').innerHTML = `<div class="note">${mode === 'fixed' ? '<b>With fixes:</b><br>' + FIX_NOTES.map(n => '• ' + esc(n)).join('<br>') : '<b>As designed</b> (design.md, no fixes). Switch to “with fixes” to compare on the same seed.'}<br><br>Robot: shooter, track-wire coil and the tower-tape sensor (pink ring, looking sideways, directly below the shooter) on the right — it sees the vertical banner under each tower's marked hole; beacon detector on the left (yellow beam). Drives counterclockwise so the shooter faces the towers.</div>${esc(DESIGN_DIAGRAM)}`;
+}
+
+// ---------- params ----------
+const paramsEl = $('#params');
+for (const k of Object.keys(DEFAULT_PARAMS)) {
+  const l = document.createElement('label'); l.textContent = PARAM_LABELS[k] || k;
+  const i = document.createElement('input'); i.type = 'number'; i.step = 'any'; i.value = params[k];
+  i.addEventListener('change', () => { const v = parseFloat(i.value); if (isFinite(v)) { params[k] = v; save(); restart(); } });
+  paramsEl.append(l, i);
+}
+const resetP = document.createElement('button'); resetP.className = 'btn'; resetP.textContent = 'Reset settings';
+resetP.style.gridColumn = '1 / -1'; resetP.style.justifySelf = 'start';
+resetP.onclick = () => { Object.assign(params, DEFAULT_PARAMS); paramsEl.querySelectorAll('input').forEach((i, n) => i.value = params[Object.keys(DEFAULT_PARAMS)[n]]); save(); restart(); };
+paramsEl.append(resetP);
+
+// ---------- program / diagram ----------
+function compile() {
+  if (mode !== 'text') { program = parseProgram(DESIGN_DIAGRAM); $('#errs').innerHTML = ''; drawDiagram(); return true; }
+  program = parseProgram(srcEl.value);
+  $('#errs').innerHTML = program.errors.map(e => `<div>${esc(e)}</div>`).join('');
+  drawDiagram();
+  return !program.errors.length || program.model.states.length > 0;
+}
+function drawDiagram() {
+  const m = program.model, box = $('#diagram');
+  if (!m.states.length) { box.innerHTML = '<div class="muted">No states yet.</div>'; return; }
+  try {
+    const geo = geometry(m);
+    const { svg } = buildSVG(m, geo, 'simfsm', m.title || 'FSM');
+    box.innerHTML = svg;
+    const el = box.querySelector('svg'); el.removeAttribute('width'); el.removeAttribute('height'); el.style.cssText = 'position:absolute;inset:8px;width:calc(100% - 16px);height:calc(100% - 16px);max-width:none';
+    lastLeaf = null; highlight();
+  } catch (e) { box.innerHTML = `<div class="muted">Diagram error: ${esc(e.message)}</div>`; }
+}
+document.querySelectorAll('.tab').forEach(b => b.onclick = () => {
+  document.querySelectorAll('.tab').forEach(x => x.setAttribute('aria-selected', x === b));
+  document.querySelectorAll('.tabbody').forEach(x => x.hidden = x.dataset.body !== b.dataset.tab);
+});
+const showTab = n => document.querySelector(`.tab[data-tab="${n}"]`).click();
+function highlight() {
+  if (!sim || sim.leaf === lastLeaf) return;
+  lastLeaf = sim.leaf;
+  const p = sim.path();
+  let active = null;
+  $('#diagram').querySelectorAll('.state').forEach(el => { const on = p.includes(el.dataset.state); el.classList.toggle('is-active', on); if (on && el.dataset.state === sim.leaf) active = el; });
+}
+let editTimer = null;
+srcEl.addEventListener('input', () => { clearTimeout(editTimer); editTimer = setTimeout(() => { compile(); save(); }, 350); });
+srcEl.addEventListener('keydown', e => { if (e.key === 'Tab' && !e.shiftKey) { e.preventDefault(); document.execCommand('insertText', false, '  '); } });
+$('#resetProg').onclick = () => { srcEl.value = DEFAULT_PROGRAM; compile(); save(); restart(); };
+$('#copyProg').onclick = async e => { try { await navigator.clipboard.writeText(srcEl.value); e.target.textContent = 'Copied'; } catch { srcEl.select(); document.execCommand('copy'); e.target.textContent = 'Copied'; } setTimeout(() => e.target.textContent = 'Copy', 1200); };
+
+// ---------- sim control ----------
+function restart() {
+  compile();
+  sim = makeSim(seed);
+  $('#seed').value = seed; lastLeaf = null; logShown = 0; $('#log').innerHTML = '';
+  setPlaying(false); render();
+}
+function setPlaying(p) { playing = p && sim && sim.status === 'running'; $('#play').textContent = playing ? '❚❚ Pause' : '▶ Run'; if (playing) { lastFrame = performance.now(); requestAnimationFrame(loop); } }
+function advance(sec) { const n = Math.round(sec / 0.01); for (let i = 0; i < n && sim.status === 'running'; i++) sim.step(0.01); }
+function loop(now) {
+  if (!playing) return;
+  const dt = Math.min(0.1, (now - lastFrame) / 1000); lastFrame = now;
+  advance(dt * +$('#speed').value);
+  render();
+  if (sim.status !== 'running') setPlaying(false); else requestAnimationFrame(loop);
+}
+$('#play').onclick = () => { if (sim.status !== 'running') restart(); setPlaying(!playing); };
+$('#stepBtn').onclick = () => { setPlaying(false); advance(0.1); render(); };
+$('#restart').onclick = restart;
+$('#robotSel').addEventListener('change', e => { mode = e.target.value; save(); applyMode(); restart(); });
+$('#newField').onclick = () => { seed = 1 + Math.floor(Math.random() * 99999); restart(); };
+$('#seed').addEventListener('change', e => { const v = parseInt(e.target.value); if (v > 0) { seed = v; restart(); } });
+
+// ---------- render ----------
+const VIEW = 56; // half-size of view in inches (field 48 + towers)
+const px = () => canvas.width / (2 * VIEW);
+const X = x => (x + VIEW) * px(), Y = y => (VIEW - y) * px();
+function poly(pts, fill, stroke, lw = 1) { g.beginPath(); pts.forEach(([x, y], i) => i ? g.lineTo(X(x), Y(y)) : g.moveTo(X(x), Y(y))); g.closePath(); if (fill) { g.fillStyle = fill; g.fill(); } if (stroke) { g.strokeStyle = stroke; g.lineWidth = lw; g.stroke(); } }
+function rect(x0, y0, x1, y1, fill) { g.fillStyle = fill; g.fillRect(X(x0), Y(y1), (x1 - x0) * px(), (y1 - y0) * px()); }
+
+function render() {
+  const S = sim, k = px();
+  g.clearRect(0, 0, canvas.width, canvas.height);
+  rect(-VIEW, -VIEW, VIEW, VIEW, '#d9dde4');
+  rect(-48, -48, 48, 48, '#ffffff');
+  g.strokeStyle = '#b7bec9'; g.lineWidth = 1; g.strokeRect(X(-48), Y(48), 96 * k, 96 * k);
+  for (const [x0, y0, x1, y1] of TAPE_RECTS) rect(x0, y0, x1, y1, '#111');
+  // towers
+  for (const T of S.W.towers) {
+    const [ux, uy] = T.u, [nx, ny] = T.n, d = 4;
+    poly([[T.cx - ux * 6, T.cy - uy * 6], [T.cx + ux * 6, T.cy + uy * 6], [T.cx + ux * 6 + nx * d, T.cy + uy * 6 + ny * d], [T.cx - ux * 6 + nx * d, T.cy - uy * 6 + ny * d]],
+      T.scored ? '#7fd39b' : '#f2a33a', T.scored ? '#1a8a4a' : '#b86e0e', T.scored ? 2.5 : 1);
+    T.holes.forEach(([hx, hy], i) => {
+      g.beginPath(); g.arc(X(hx + nx * 1.8), Y(hy + ny * 1.8), 1.75 * k, 0, 7); g.fillStyle = i === T.marked ? '#111' : '#fff6e6'; g.fill(); g.strokeStyle = '#7a4a08'; g.lineWidth = 1; g.stroke();
+    });
+    poly(markCorners(T), '#111');                                                   // vertical banner on the tower face below the marked hole
+    g.setLineDash([4, 3]); g.strokeStyle = '#8a3ffc'; g.lineWidth = 2; g.beginPath(); g.moveTo(X(T.wire[0][0]), Y(T.wire[0][1])); g.lineTo(X(T.wire[1][0]), Y(T.wire[1][1])); g.stroke(); g.setLineDash([]);
+  }
+  // trail
+  if (S.trail.length > 1) { g.beginPath(); S.trail.forEach(([x, y], i) => i ? g.lineTo(X(x), Y(y)) : g.moveTo(X(x), Y(y))); g.strokeStyle = 'rgba(47,111,237,.35)'; g.lineWidth = 2; g.stroke(); }
+  // opponent
+  poly(S.W.opp.poly, '#222', '#000');
+  g.beginPath(); g.arc(X(S.W.opp.x), Y(S.W.opp.y), 2.2 * k, 0, 7); g.strokeStyle = '#ffd400'; g.lineWidth = 2; g.stroke();
+  // shots
+  for (const s of S.shots) {
+    const age = S.t - s.t; if (age > 4) continue;
+    g.globalAlpha = 1 - age / 4; g.strokeStyle = s.ok ? '#1a8a4a' : '#c7362b'; g.lineWidth = 2.5;
+    g.beginPath(); g.moveTo(X(s.from[0]), Y(s.from[1])); g.lineTo(X(s.to[0]), Y(s.to[1])); g.stroke();
+    g.beginPath(); g.arc(X(s.to[0]), Y(s.to[1]), 0.8 * k, 0, 7); g.fillStyle = g.strokeStyle; g.fill(); g.globalAlpha = 1;
+  }
+  // robot
+  const r = S.r, w = (lx, ly) => toWorld(r, lx, ly);
+  // beacon beam
+  const [bx, by] = S.design ? w(...D_BEACON) : w(...MOUNTS.beacon), [rx, ry] = S.design ? [-Math.sin(r.th), Math.cos(r.th)] : rightDir(r), half = params.beaconHalf * Math.PI / 180, L = 120;
+  g.fillStyle = S.sens.beacon ? 'rgba(255,190,0,.28)' : 'rgba(255,190,0,.10)';
+  g.beginPath(); g.moveTo(X(bx), Y(by));
+  for (const a of [-half, half]) { const c = Math.cos(a), s = Math.sin(a); g.lineTo(X(bx + (rx * c - ry * s) * L), Y(by + (rx * s + ry * c) * L)); }
+  g.closePath(); g.fill();
+  poly(corners(r.x, r.y, r.th, 5, 5), '#eef2f8', '#2b3445', 1.5);
+  poly([w(-5, 0.3), w(0, 0.3), w(0, 4.7), w(-5, 4.7)], '#d5dbe6');                    // ammo (left half)
+  poly([w(-5, -4.7), w(0, -4.7), w(0, -0.3), w(-5, -0.3)], '#d5dbe6');
+  poly([w(-5, 5), w(5, 5), w(5, 5.6), w(-5, 5.6)], S.sens.bumpf ? '#ff6a00' : '#f5c400'); // bumpers
+  poly([w(-5, -5), w(5, -5), w(5, -5.6), w(-5, -5.6)], S.sens.bumpb ? '#ff6a00' : '#f5c400');
+  poly([w(-5.6, -2), w(-5, -2), w(-5, 2), w(-5.6, 2)], '#2f6fed'); poly([w(5, -2), w(5.6, -2), w(5.6, 2), w(5, 2)], '#2f6fed'); // wheels
+  const mounts = S.design ? D_MOUNT : MOUNTS, sensorKeys = S.design ? Object.keys(D_MOUNT) : ['fl', 'fri', 'fro', 'bl', 'br'];
+  poly([w(1.2, -1), w(4.6, 0), w(1.2, 1)], '#c7362b');                                  // launcher arrow (fires right)
+  if (S.design) { const [mx, my] = w(...D_MARK); g.beginPath(); g.arc(X(mx), Y(my), 0.7 * k, 0, 7); g.strokeStyle = S.sens.mark ? '#ff3b9a' : '#e8b7cf'; g.lineWidth = 2.5; g.stroke(); }  // tower-tape sensor (looks down)
+  for (const s of sensorKeys) { const [sx, sy] = w(...mounts[s]); g.beginPath(); g.arc(X(sx), Y(sy), 0.75 * k, 0, 7); g.fillStyle = S.sens[s] ? '#18c26b' : '#8b94a8'; g.fill(); g.strokeStyle = '#fff'; g.lineWidth = 1; g.stroke(); }
+  const [cxw, cyw] = S.design ? w(4.2, -2) : w(...MOUNTS.coil); g.beginPath(); g.arc(X(cxw), Y(cyw), 0.9 * k, 0, 7); g.fillStyle = S.sens.trackwire ? '#8a3ffc' : '#cbb8f5'; g.fill();
+  // front marker
+  if (!S.design) { const [fx, fy] = w(0, 3.2); g.beginPath(); g.arc(X(fx), Y(fy), 0.5 * k, 0, 7); g.fillStyle = '#2b3445'; g.fill(); }
+  // status overlay
+  if (S.status !== 'running') {
+    g.fillStyle = S.status === 'win' ? 'rgba(26,138,74,.88)' : S.status === 'done' ? 'rgba(161,92,0,.88)' : 'rgba(199,54,43,.88)';
+    g.fillRect(0, canvas.height / 2 - 34, canvas.width, 68); g.fillStyle = '#fff'; g.font = `600 ${Math.round(canvas.width / 34)}px ${FONT}`; g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.fillText(S.status === 'done' ? `FSM finished without min spec (towers ${S.towersScored}/2, hits ${S.oppHits}/2)` : S.reason, canvas.width / 2, canvas.height / 2);
+  }
+  // HUD
+  const st = $('#status'); st.textContent = S.status === 'running' ? (playing ? 'running' : 'paused') : S.status === 'done' ? 'incomplete' : S.status;
+  st.className = 'pill ' + (S.status === 'win' ? 'win' : S.status === 'running' ? '' : S.status === 'done' ? 'done' : 'bad');
+  $('#time').textContent = S.t.toFixed(1); $('#balls').textContent = S.balls; $('#opp').textContent = S.oppHits; $('#towers').textContent = S.towersScored;
+  $('#path').textContent = S.path().join(' › ');
+  $('#lights').innerHTML = (S.design ? [['FL', 'fl'], ['FC', 'fc'], ['FR', 'fr'], ['MC', 'mc'], ['BL', 'bl'], ['BC', 'bc'], ['BR', 'br'], ['TW', 'trackwire'], ['MARK', 'mark'], ['BCN', 'beacon'], ['BF', 'bumpf'], ['BB', 'bumpb']]
+    : [['FL', 'fl'], ['FRi', 'fri'], ['FRo', 'fro'], ['BL', 'bl'], ['BR', 'br'], ['TW', 'trackwire'], ['BCN', 'beacon'], ['BF', 'bumpf'], ['BB', 'bumpb']])
+    .map(([n, s]) => `<span class="light${S.sens[s] ? ' on' : ''}">${n}</span>`).join('');
+  // log
+  const logEl = $('#log');
+  if (S.log.length < logShown) { logEl.innerHTML = ''; logShown = 0; }
+  const atBottom = logEl.scrollTop + logEl.clientHeight >= logEl.scrollHeight - 4;
+  for (; logShown < S.log.length; logShown++) { const l = S.log[logShown], d = document.createElement('div'); d.className = l.kind; d.innerHTML = `<span class="t">${l.t.toFixed(2)}</span>${esc(l.m)}`; logEl.append(d); }
+  while (logEl.childElementCount > 300) logEl.firstChild.remove();
+  if (atBottom) logEl.scrollTop = logEl.scrollHeight;
+  highlight();
+}
+function fitCanvas() { const wrap = canvas.parentElement.getBoundingClientRect(), s = Math.max(300, Math.floor(Math.min(wrap.width, wrap.height) - 16)); const dpr = window.devicePixelRatio || 1; canvas.style.width = s + 'px'; canvas.style.height = s + 'px'; canvas.width = canvas.height = Math.round(s * dpr); if (sim) render(); }
+new ResizeObserver(fitCanvas).observe(canvas.parentElement);
+
+// ---------- batch ----------
+$('#batch').onclick = () => {
+  compile(); setPlaying(false); showTab('batch');
+  const N = Math.max(1, Math.min(2000, parseInt($('#nRuns').value) || 100)), base = seed, out = $('#batchOut');
+  const res = { win: [], dq: [], timeout: [], done: [] }, times = []; let i = 0;
+  const ext = { att: 0, corners: 0, opp: 0, scored: 0, perim: 0 };
+  const btn = $('#batch'); btn.disabled = true;
+  const chunk = () => {
+    const t0 = performance.now();
+    while (i < N && performance.now() - t0 < 40) {
+      const sd = base + i, S = makeSim(sd);
+      while (S.status === 'running') S.step(0.01);
+      if (S.design) { ext.att += S.stats.attacks > 0; ext.corners += S.stats.corners; ext.opp += S.oppHits; ext.scored += S.towersScored; ext.perim += S.stats.perimT !== null; }
+      res[S.status].push({ sd, why: S.status === 'win' ? '' : `${S.leaf}${S.status === 'done' ? ` (towers ${S.towersScored}, hits ${S.oppHits})` : ': ' + S.reason}` });
+      if (S.status === 'win') times.push(S.t);
+      i++;
+    }
+    out.innerHTML = `Running ${i}/${N}…`;
+    if (i < N) return setTimeout(chunk, 0);
+    btn.disabled = false;
+    const pct = n => (100 * n / N).toFixed(0) + '%', avg = times.length ? (times.reduce((a, b) => a + b, 0) / times.length).toFixed(1) : '—';
+    const fails = [...res.dq.map(x => ({ ...x, k: 'dq' })), ...res.timeout.map(x => ({ ...x, k: 'timeout' })), ...res.done.map(x => ({ ...x, k: 'done' }))].sort((a, b) => a.sd - b.sd);
+    out.className = '';
+    out.innerHTML = `<b style="color:var(--good)">${pct(res.win.length)} win</b> (${res.win.length}/${N}, avg ${avg} s) · <span style="color:var(--bad)">DQ ${res.dq.length}</span> · <span style="color:var(--warn)">timeout ${res.timeout.length}</span> · incomplete ${res.done.length}
+      <div class="bar"><span style="width:${pct(res.win.length)};background:#1a8a4a"></span><span style="width:${pct(res.dq.length)};background:#c7362b"></span><span style="width:${pct(res.timeout.length)};background:#e0a030"></span><span style="width:${pct(res.done.length)};background:#9aa6bf"></span></div>
+      ${mode !== 'text' ? `<div class="muted" style="margin-top:6px">design.md robot: found perimeter ${pct(ext.perim)} · corners/run ${(ext.corners / N).toFixed(1)} · towers scored/run ${(ext.scored / N).toFixed(2)} · attacked ${pct(ext.att)} · opponent hits/run ${(ext.opp / N).toFixed(2)}</div>` : ''}
+      <div class="muted" style="margin-top:6px">Seeds ${base}–${base + N - 1}. Failures (hover for why, click to replay):</div>
+      <div class="seeds">${fails.map(f => `<button class="${f.k}" data-seed="${f.sd}" title="${esc(f.k + ' — ' + f.why)}">${f.sd}</button>`).join('') || '<span>none 🎉</span>'}</div>`;
+    out.querySelectorAll('[data-seed]').forEach(b => b.onclick = () => { seed = +b.dataset.seed; restart(); });
+  };
+  chunk();
+};
+
+// ---------- boot ----------
+applyMode(); restart(); fitCanvas();
+
+</script>
+</body>
+</html>
