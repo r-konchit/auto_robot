@@ -82,7 +82,7 @@
 #define SWING_MS        1450
 // After the swing would end (FC back on tape, or SWING_MS), keep swinging this much
 // longer (right wheel still locked) so the robot lines up fully with the new line.
-#define SWING_EXTRA_MS  250
+#define SWING_EXTRA_MS  400
 #define BLIND_MAX_MS    1500    // back row ignored at most this long after a corner
 
 #define KICK_TIMER   TOP_TIMER

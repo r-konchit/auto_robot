@@ -56,7 +56,7 @@ wide, and the wheels are `HALF_TRACK_IN` (4.5", measure it) either side of the a
 | `Drive` | straight-line correction (FL FC FR / BL BC BR) | CR sees tape |
 | `Corner_CR_on` | drive straight `SWING_DELAY_IN` (about 0.3") | timer |
 | `Swing_right` | right wheel braked, left wheel forward at `SWING_SPEED` (60) | FC comes back onto tape after at least half of `SWING_MS` (`Swing_FC_on`), or `SWING_MS` (1.45 s, `Swing_time`) |
-| `Swing_extra` | keep swinging (right wheel still locked) `SWING_EXTRA_MS` (0.25 s) more, so it lines up fully | timer |
+| `Swing_extra` | keep swinging (right wheel still locked) `SWING_EXTRA_MS` (0.4 s) more, so it lines up fully | timer |
 | `Kick` → `Drive_back_blind` | kick, follow the new line, back row ignored until BC sees tape | `Back_row_on` |
 
 FC swings off the tape halfway through the turn and lands back on the new line at 90°, so
@@ -70,7 +70,7 @@ the timer ends it instead.
 - **Ends the turn right of the new line** (swung too late): lower `SWING_DELAY_IN`, or raise
   `HALF_TRACK_IN`. **Left of it** (swung too early): the opposite.
 - **Turns too little:** raise `SWING_MS` (1450). **Too much:** lower it.
-- **Not quite lined up after the swing:** raise `SWING_EXTRA_MS` (250). **Over-turns:** lower it.
+- **Not quite lined up after the swing:** raise `SWING_EXTRA_MS` (400). **Over-turns:** lower it.
 - **Swing stalls or is weak:** raise `SWING_SPEED` (60).
 - `CR_AHEAD_IN` (3.8"): CR's distance ahead of the axle. Measure it in Onshape.
 
